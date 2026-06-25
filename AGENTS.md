@@ -273,14 +273,17 @@ Tool 和 Command 应分别列出并标注命名风格：
 
 ### Step 2: 冒烟测试
 
-确认插件不影响 pi 正常启动：
+确认插件不影响 pi 正常启动，并运行单元测试：
 
 ```bash
-pi -e ./<plugin-path>/index.ts
+pi -e ./<plugin-path>/index.ts        # 冒烟：启动不崩溃
+npm test                              # 单元测试全部通过
+GH_TEST_TOKEN=<token> npm test        # 含集成测试（可选）
 ```
 
 检查项：
 - [ ] pi 正常启动，无崩溃
+- [ ] `npm test` 全部通过
 - [ ] 注册的 Tool / Command 可正常调用
 - [ ] Provider 类插件：`/model` 可见新模型，`/login` 流程正常
 

@@ -10,7 +10,8 @@
   "repository": "git@github.com:Traveler0014/pi-github.git",
   "installUrl": "https://github.com/Traveler0014/pi-github.git",
   "scripts": {
-    "update-docs": "tsx scripts/update-docs.ts"
+    "update-docs": "tsx scripts/update-docs.ts",
+    "test": "vitest run"
   },
   "pi": {
     "extensions": [
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
