@@ -804,14 +804,17 @@ export default function (pi: ExtensionAPI) {
 
       // Step 1: Choose platform type
       const typeChoice = await ctx.ui.select("Select platform type:", [
-        { value: "github", label: "GitHub (github.com or GitHub Enterprise)" },
-        { value: "gitea", label: "Gitea" },
-        { value: "forgejo", label: "Forgejo" },
+        "GitHub (github.com or GitHub Enterprise)",
+        "Gitea",
+        "Forgejo",
       ]);
       if (!typeChoice) {
         ctx.ui.notify("Configuration cancelled.", "info");
         return;
       }
+      const platformType: PlatformType = typeChoice.toLowerCase().startsWith("github") ? "github"
+        : typeChoice === "Gitea" ? "gitea"
+        : "forgejo";
 
       // Step 2: Base URL
       const defaultUrls: Record<string, string> = {
@@ -821,7 +824,7 @@ export default function (pi: ExtensionAPI) {
       };
       const baseUrl = await ctx.ui.input(
         "Enter API base URL:",
-        defaultUrls[typeChoice] || "",
+        defaultUrls[platformType] || "",
       );
       if (baseUrl === undefined) {
         ctx.ui.notify("Configuration cancelled.", "info");
@@ -844,7 +847,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       // Step 4: Instance name
-      const defaultName = existingNames.length > 0 ? `${typeChoice}-${existingNames.length + 1}` : typeChoice;
+      const defaultName = existingNames.length > 0 ? `${platformType}-${existingNames.length + 1}` : platformType;
       const name = await ctx.ui.input("Instance name (used as the 'instance' value in tools):", defaultName);
       if (name === undefined) {
         ctx.ui.notify("Configuration cancelled.", "info");
@@ -853,7 +856,7 @@ export default function (pi: ExtensionAPI) {
       const configName = name.trim() || defaultName;
 
       const detectedType =
-        typeChoice === "github" ? detectPlatform(baseUrl.trim()) : typeChoice;
+        platformType === "github" ? detectPlatform(baseUrl.trim()) : platformType;
 
       // Step 5: Set as default?
       const setDefault =
@@ -899,10 +902,9 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const choices = names.map((n) => ({
-        value: n,
-        label: `${n} (${config.platforms[n].type} — ${config.platforms[n].baseUrl})`,
-      }));
+      const choices = names.map((n) =>
+        `${n} (${config.platforms[n].type} — ${config.platforms[n].baseUrl})`,
+      );
 
       const chosen = await ctx.ui.select("Select default instance:", choices);
       if (!chosen) {
@@ -910,7 +912,9 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      config.default = chosen;
+      // Extract instance name from selected string
+      const selectedName = chosen.split(" ")[0];
+      config.default = selectedName;
       saveConfig(config);
       ctx.ui.notify(`Default instance → "${chosen}". All tools will use this unless 'instance' is specified.`, "info");
     },
@@ -928,10 +932,9 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const choices = names.map((n) => ({
-        value: n,
-        label: `${n} (${config.platforms[n].type} — ${config.platforms[n].baseUrl})`,
-      }));
+      const choices = names.map((n) =>
+        `${n} (${config.platforms[n].type} — ${config.platforms[n].baseUrl})`,
+      );
 
       const target = await ctx.ui.select("Select instance to remove:", choices);
       if (!target) {
@@ -939,25 +942,27 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
+      const targetName = target.split(" ")[0];
+
       const ok = await ctx.ui.confirm(
         "Confirm removal",
-        `Remove instance "${target}" (${config.platforms[target].type})? This cannot be undone.`,
+        `Remove instance "${targetName}" (${config.platforms[targetName].type})? This cannot be undone.`,
       );
       if (!ok) {
         ctx.ui.notify("Cancelled.", "info");
         return;
       }
 
-      delete config.platforms[target];
-      if (config.default === target) {
+      delete config.platforms[targetName];
+      if (config.default === targetName) {
         const remaining = Object.keys(config.platforms);
         config.default = remaining.length > 0 ? remaining[0] : "";
       }
       saveConfig(config);
 
       const msg = config.default
-        ? `Removed "${target}". Default is now "${config.default}".`
-        : `Removed "${target}". No instances remaining.`;
+        ? `Removed "${targetName}". Default is now "${config.default}".`
+        : `Removed "${targetName}". No instances remaining.`;
       ctx.ui.notify(msg, "info");
     },
   });
