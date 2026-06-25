@@ -120,7 +120,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo", "title"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -186,7 +186,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -246,7 +246,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo", "number"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -315,7 +315,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo", "number", "body"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -370,7 +370,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo", "title", "head", "base"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -441,7 +441,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -497,7 +497,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo", "number"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
@@ -555,7 +555,7 @@ export default function (pi: ExtensionAPI) {
       },
       required: ["repo"],
     },
-    async execute(params) {
+    async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
       if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
