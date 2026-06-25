@@ -135,6 +135,12 @@ describe("buildHeaders", () => {
     expect(h.Authorization).toBe("token deadbeef1234567890abcdef1234567890abcdef12");
     expect(h.Accept).toBe("application/json");
   });
+
+  it("omits Authorization when token is empty", () => {
+    const h = buildHeaders({ type: "github", baseUrl: "", token: "" });
+    expect(h.Authorization).toBeUndefined();
+    expect(h.Accept).toBe("application/vnd.github+json");
+  });
 });
 
 // =============================================================================

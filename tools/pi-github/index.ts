@@ -149,9 +149,9 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("✚ issue ")) + theme.fg("accent", args.repo);
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`issue create[${inst}]`)) + " " + theme.fg("accent", args.repo);
       text += " " + theme.fg("muted", `"${args.title}"`);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
       return new Text(text, 0, 0);
     },
 
@@ -159,9 +159,9 @@ export default function (pi: ExtensionAPI) {
       const content = result.content[0];
       if (content?.type === "text") {
         const first = content.text.split("\n")[0];
-        return new Text(theme.fg("success", "✓ ") + theme.fg("muted", first), 0, 0);
+        return new Text(theme.fg("success", first), 0, 0);
       }
-      return new Text(theme.fg("success", "✓ Created"), 0, 0);
+      return new Text(theme.fg("success", "Created"), 0, 0);
     },
   });
 
@@ -215,10 +215,9 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("☰ issues ")) + theme.fg("accent", args.repo);
-      if (args.state && args.state !== "open") text += theme.fg("dim", ` state=${args.state}`);
-      if (args.labels) text += theme.fg("dim", ` labels=${args.labels}`);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`issues list[${inst}]`)) + " " + theme.fg("accent", args.repo);
       return new Text(text, 0, 0);
     },
 
@@ -284,8 +283,9 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("● issue ")) + theme.fg("accent", `${args.repo}#${args.number}`);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`issue[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
       return new Text(text, 0, 0);
     },
 
@@ -340,13 +340,14 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("✎ comment ")) + theme.fg("accent", `${args.repo}#${args.number}`);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`comment[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
       return new Text(text, 0, 0);
     },
 
     renderResult(_result, _options, theme, _context) {
-      return new Text(theme.fg("success", "✓ Comment added"), 0, 0);
+      return new Text(theme.fg("success", "Comment added"), 0, 0);
     },
   });
 
@@ -404,11 +405,12 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("⎆ PR ")) + theme.fg("accent", args.repo);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`PR create[${inst}]`)) + " " + theme.fg("accent", args.repo);
       text += " " + theme.fg("muted", `${args.head}→${args.base}`);
       text += " " + theme.fg("dim", `"${args.title}"`);
       if (args.draft) text += theme.fg("warning", " draft");
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
       return new Text(text, 0, 0);
     },
 
@@ -416,9 +418,9 @@ export default function (pi: ExtensionAPI) {
       const content = result.content[0];
       if (content?.type === "text") {
         const first = content.text.split("\n")[0];
-        return new Text(theme.fg("success", "✓ ") + theme.fg("muted", first), 0, 0);
+        return new Text(theme.fg("success", first), 0, 0);
       }
-      return new Text(theme.fg("success", "✓ Created"), 0, 0);
+      return new Text(theme.fg("success", "Created"), 0, 0);
     },
   });
 
@@ -464,9 +466,9 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("☰ PRs ")) + theme.fg("accent", args.repo);
-      if (args.state && args.state !== "open") text += theme.fg("dim", ` state=${args.state}`);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`PRs list[${inst}]`)) + " " + theme.fg("accent", args.repo);
       return new Text(text, 0, 0);
     },
 
@@ -523,8 +525,9 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("● PR ")) + theme.fg("accent", `${args.repo}#${args.number}`);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`PR[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
       return new Text(text, 0, 0);
     },
 
@@ -588,8 +591,9 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, _context) {
-      let text = theme.fg("toolTitle", theme.bold("◉ repo ")) + theme.fg("accent", args.repo);
-      text += theme.fg("dim", ` @${resolveInstanceName(args.instance)}`);
+      const inst = resolveInstanceName(args.instance);
+
+      let text = theme.fg("toolTitle", theme.bold(`repo[${inst}]`)) + " " + theme.fg("accent", args.repo);
       return new Text(text, 0, 0);
     },
 

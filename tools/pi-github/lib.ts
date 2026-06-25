@@ -99,17 +99,22 @@ export function listInstances(cfg: GitPluginConfig): string {
 // =============================================================================
 
 export function buildHeaders(platform: PlatformConfig): Record<string, string> {
-  if (platform.type === "github") {
-    return {
-      Authorization: `Bearer ${platform.token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    };
+  const headers: Record<string, string> = {};
+
+  if (platform.token) {
+    headers.Authorization = platform.type === "github"
+      ? `Bearer ${platform.token}`
+      : `token ${platform.token}`;
   }
-  return {
-    Authorization: `token ${platform.token}`,
-    Accept: "application/json",
-  };
+
+  if (platform.type === "github") {
+    headers.Accept = "application/vnd.github+json";
+    headers["X-GitHub-Api-Version"] = "2022-11-28";
+  } else {
+    headers.Accept = "application/json";
+  }
+
+  return headers;
 }
 
 /** Per_page vs limit for pagination */
