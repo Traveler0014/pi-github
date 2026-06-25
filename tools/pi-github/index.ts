@@ -37,6 +37,18 @@ import {
 } from "./lib";
 
 // =============================================================================
+// Helpers
+// =============================================================================
+
+/** Wrap a plain-text result into the structured format pi expects (see pi-alarm). */
+function textResult(text: string, details?: Record<string, unknown>) {
+  return {
+    content: [{ type: "text" as const, text }],
+    details: details ?? {},
+  };
+}
+
+// =============================================================================
 // Shared Parameter Schemas
 // =============================================================================
 
@@ -123,29 +135,31 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const body: Record<string, unknown> = { title: params.title };
       if (params.body) body.body = params.body;
       if (params.labels && params.labels.length > 0) body.labels = params.labels;
 
-      const { status, data } = await apiRequest(
-        platform,
-        "POST",
-        `/repos/${parsed.owner}/${parsed.repoName}/issues`,
-        body,
-      );
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues`;
+      const { status, data } = await apiRequest(platform, "POST", apiPath, body);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, `/repos/${parsed.owner}/${parsed.repoName}/issues`);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const d = data as Record<string, unknown>;
-      return [
+      const text = [
         `Issue created: #${d.number} — ${d.title}`,
         `URL: ${d.html_url}`,
         `State: ${d.state}`,
       ].join("\n");
+      return textResult(text, { number: d.number, title: d.title, url: d.html_url });
     },
 
     renderCall(args, theme, _context) {
@@ -189,21 +203,26 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const qs = buildListQuery(platform, params);
       const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues?${qs}`;
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, apiPath);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const issues = data as Array<Record<string, unknown>>;
       const filtered = issues.filter((i) => !i.pull_request);
-      if (filtered.length === 0) return "No issues found.";
+      if (filtered.length === 0) return textResult("No issues found.");
 
-      return filtered
+      const text = filtered
         .map((i) => {
           const labels =
             Array.isArray(i.labels) && i.labels.length > 0
@@ -212,6 +231,7 @@ export default function (pi: ExtensionAPI) {
           return `#${i.number} ${i.title} (${i.state})${labels}\n  ${i.html_url}`;
         })
         .join("\n\n");
+      return textResult(text, { count: filtered.length });
     },
 
     renderCall(args, theme, _context) {
@@ -249,13 +269,18 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}`;
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, apiPath);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const i = data as Record<string, unknown>;
@@ -272,14 +297,15 @@ export default function (pi: ExtensionAPI) {
           ? `\nMilestone: ${(i.milestone as { title: string }).title}`
           : "";
 
-      return [
+      const text = [
         `#${i.number} ${i.title}`,
         `State: ${i.state} | Created: ${i.created_at} | Updated: ${i.updated_at}`,
-        `Author: ${(i.user as { login: string }).login}`,
+        `Author: ${i.user && typeof i.user === "object" ? (i.user as { login: string }).login : "unknown"}`,
         `URL: ${i.html_url}${labels}${assignee}${milestone}`,
         ``,
         i.body || "(no description)",
       ].join("\n");
+      return textResult(text, { number: i.number, title: i.title, state: i.state });
     },
 
     renderCall(args, theme, _context) {
@@ -318,25 +344,22 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
-
-      const { status, data } = await apiRequest(
-        platform,
-        "POST",
-        `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}/comments`,
-        { body: params.body },
-      );
-
-      if (status < 200 || status >= 300) {
-        return formatApiError(
-          status,
-          data,
-          `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}/comments`,
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
         );
       }
 
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}/comments`;
+      const { status, data } = await apiRequest(platform, "POST", apiPath, { body: params.body });
+
+      if (status < 200 || status >= 300) {
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+      }
+
       const c = data as Record<string, unknown>;
-      return `Comment added: ${c.html_url}`;
+      return textResult(`Comment added: ${c.html_url}`, { url: c.html_url });
     },
 
     renderCall(args, theme, _context) {
@@ -373,7 +396,12 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const body: Record<string, unknown> = {
         title: params.title,
@@ -383,25 +411,22 @@ export default function (pi: ExtensionAPI) {
       if (params.body) body.body = params.body;
       if (params.draft && platform.type === "github") body.draft = true;
 
-      const { status, data } = await apiRequest(
-        platform,
-        "POST",
-        `/repos/${parsed.owner}/${parsed.repoName}/pulls`,
-        body,
-      );
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/pulls`;
+      const { status, data } = await apiRequest(platform, "POST", apiPath, body);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, `/repos/${parsed.owner}/${parsed.repoName}/pulls`);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const d = data as Record<string, unknown>;
       const draftLabel = d.draft ? " [DRAFT]" : "";
-      return [
+      const text = [
         `PR created: #${d.number} — ${d.title}${draftLabel}`,
         `URL: ${d.html_url}`,
         `Branch: ${d.head} → ${d.base}`,
         `State: ${d.state}`,
       ].join("\n");
+      return textResult(text, { number: d.number, title: d.title, url: d.html_url });
     },
 
     renderCall(args, theme, _context) {
@@ -444,25 +469,31 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const qs = buildListQuery(platform, params);
       const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/pulls?${qs}`;
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, apiPath);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const prs = data as Array<Record<string, unknown>>;
-      if (prs.length === 0) return "No pull requests found.";
+      if (prs.length === 0) return textResult("No pull requests found.");
 
-      return prs
+      const text = prs
         .map((pr) => {
           const draftLabel = pr.draft ? " [DRAFT]" : "";
           return `#${pr.number} ${pr.title} (${pr.state})${draftLabel}\n  ${pr.head} → ${pr.base}\n  ${pr.html_url}`;
         })
         .join("\n\n");
+      return textResult(text, { count: prs.length });
     },
 
     renderCall(args, theme, _context) {
@@ -500,28 +531,34 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/pulls/${params.number}`;
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, apiPath);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const pr = data as Record<string, unknown>;
       const draftLabel = pr.draft ? " [DRAFT]" : "";
       const mergeable = pr.mergeable !== undefined ? `\nMergeable: ${pr.mergeable}` : "";
 
-      return [
+      const text = [
         `#${pr.number} ${pr.title}${draftLabel}`,
         `State: ${pr.state} | Created: ${pr.created_at} | Updated: ${pr.updated_at}`,
-        `Author: ${(pr.user as { login: string }).login}`,
+        `Author: ${pr.user && typeof pr.user === "object" ? (pr.user as { login: string }).login : "unknown"}`,
         `Branch: ${pr.head} → ${pr.base}`,
         `URL: ${pr.html_url}${mergeable}`,
         ``,
         pr.body || "(no description)",
       ].join("\n");
+      return textResult(text, { number: pr.number, title: pr.title, state: pr.state });
     },
 
     renderCall(args, theme, _context) {
@@ -558,13 +595,18 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params) {
       const platform = resolveConfig(params.instance).config;
       const parsed = parseRepo(params.repo);
-      if (!parsed) return `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`;
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format" },
+        );
+      }
 
       const apiPath = `/repos/${parsed.owner}/${parsed.repoName}`;
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return formatApiError(status, data, apiPath);
+        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
       }
 
       const r = data as Record<string, unknown>;
@@ -578,16 +620,17 @@ export default function (pi: ExtensionAPI) {
           ? `\nTopics: ${(r.topics as string[]).join(", ")}`
           : "";
 
-      return [
+      const text = [
         `${r.full_name}`,
         `${r.description || "(no description)"}`,
         ``,
         `Stars: ${r.stargazers_count} | Forks: ${r.forks_count} | Watchers: ${r.watchers_count}`,
         `Open Issues: ${r.open_issues_count} | Default Branch: ${r.default_branch}`,
-        `Visibility: ${r.visibility ?? r.private ? "private" : "public"} | Archived: ${r.archived ?? false}`,
+        `Visibility: ${r.visibility ?? (r.private ? "private" : "public")} | Archived: ${r.archived ?? false}`,
         `URL: ${r.html_url}`,
         `Clone: ${r.clone_url}${lang}${license}${topics}`,
       ].join("\n");
+      return textResult(text, { fullName: r.full_name, stars: r.stargazers_count });
     },
 
     renderCall(args, theme, _context) {
