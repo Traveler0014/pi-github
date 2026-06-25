@@ -619,8 +619,24 @@ function main() {
     process.exit(1);
   }
 
-  const readme = generateReadme(config, extensions);
-  fs.writeFileSync(readmePath, readme, "utf-8");
+  const generated = generateReadme(config, extensions);
+
+  // Support preamble: if the existing README contains a <!-- AUTO --> marker,
+  // preserve everything before it and append the generated catalog after.
+  let finalReadme = generated;
+  if (fs.existsSync(readmePath)) {
+    const existing = fs.readFileSync(readmePath, "utf-8");
+    const marker = "<!-- AUTO -->";
+    const idx = existing.indexOf(marker);
+    if (idx !== -1) {
+      const preamble = existing.slice(0, idx).trimEnd();
+      // Strip the leading "# title" line from generated content to avoid duplication
+      const withoutTitle = generated.replace(/^# .+\n/, "");
+      finalReadme = preamble + "\n\n" + withoutTitle;
+    }
+  }
+
+  fs.writeFileSync(readmePath, finalReadme, "utf-8");
   console.log(`\n✓ Updated ${readmePath}`);
 }
 
