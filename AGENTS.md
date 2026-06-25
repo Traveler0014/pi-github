@@ -87,6 +87,179 @@ pi-extensions/
 - Provider 类插件还需声明 `@earendil-works/pi-ai` 为 peerDependency
 - `pi.extensions` 指向入口文件（通常是 `./index.ts`）
 
+## 设计规范
+
+### 命名规范
+
+| 面向 | 风格 | 格式 | 示例 |
+|------|------|------|------|
+| **Tool**（agent 调用） | `snake_case` | `<prefix>_<verb>` | `alarm_set`, `alarm_schedule`, `alarm_list` |
+| **Command**（用户键入） | `kebab-case` | `/<prefix>-<verb>` | `/alarm-set`, `/alarm-list`, `/alarm-cancel`, `/alarm-clear` |
+
+- **prefix**：标识来源插件，适中时用全称，太长可缩写（如 `alarm`、`gh`、`db`）
+- **verb**：单一动词，描述动作（如 `set`、`schedule`、`list`、`cancel`）
+- **例外**：非动词但语义自明的 getter 可保留（如 `alarm_now`）
+
+### Tool 设计原则
+
+**1. KISS — 单一职责**
+
+一个 tool 只做一件事。不要用 `action` 枚举把多种操作塞进一个 tool：
+
+```typescript
+// ❌ 反模式：多合一
+pi.registerTool({
+  name: "alarm",
+  parameters: Type.Object({
+    action: StringEnum(["set", "list", "cancel"]),
+    // ...
+  }),
+  async execute(params) {
+    switch (params.action) { /* ... */ }
+  },
+});
+
+// ✅ 正例：每个 tool 独立
+pi.registerTool({ name: "alarm_set",    ... });
+pi.registerTool({ name: "alarm_list",   ... });
+pi.registerTool({ name: "alarm_cancel", ... });
+```
+
+**2. 同类概念分离**
+
+相对和绝对值在 agent 视角是两种不同操作，应拆为独立 tool，各自严格校验自己的参数：
+
+```typescript
+// ✅ alarm_set：只接受 delay（秒），不接受 at
+alarm_set(message="Check build", delay=300)
+
+// ✅ alarm_schedule：只接受 at（ISO 8601），不接受 delay
+alarm_schedule(message="Meeting", at="2026-06-26T14:30:00Z")
+```
+
+**3. 参数严格校验**
+
+Tool 面向 agent，参数格式应精确校验，格式不对就拒绝。不要依赖宽松的运行时解析：
+
+```typescript
+// ✅ 正则严格校验 ISO 8601
+const ISO_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+if (!params.at || !ISO_PATTERN.test(params.at.trim())) {
+  return { content: [{ type: "text", text: "Error: invalid ISO 8601 format" }] };
+}
+
+const ts = Date.parse(params.at);
+if (isNaN(ts) || ts <= Date.now()) {
+  return { content: [{ type: "text", text: "Error: must be a future timestamp" }] };
+}
+```
+
+**4. 合并冗余参数**
+
+同一概念不应拆成多个参数增加 LLM 理解负担：
+
+```typescript
+// ❌ 冗余：两个参数控制同一件事
+expiresIn: Type.Optional(Type.Number({ ... })),
+neverExpire: Type.Optional(Type.Boolean({ ... })),
+
+// ✅ 统一：单一参数，用字符串区分
+//   expiresIn="300"  → 300 秒后过期
+//   expiresIn="never" → 永不过期
+expiresIn: Type.Optional(Type.String({
+  description: "Seconds as string, or 'never'. Default: '300'."
+})),
+```
+
+**5. 跨平台优先**
+
+不假设 Unix 环境。时间、文件路径等用 Node.js 内置 API 而非 shell 命令：
+
+```typescript
+// ✅ 用 Node.js Date
+const now = new Date();
+now.toISOString();
+
+// ❌ 不要假设 date 命令可用
+// exec("date")
+```
+
+### Command 设计原则
+
+**1. 比 tool 宽松**
+
+Command 面向人类，接受更自然的表达；tool 面向 agent，要求精确格式：
+
+```bash
+# Command（人类友好，支持多种格式）
+/alarm-set in 5m Check build
+/alarm-set at 14:30 Meeting
+
+# Tool（agent 调用，精确参数）
+alarm_set(message="Check build", delay=300)
+alarm_schedule(message="Meeting", at="2026-06-26T14:30:00+08:00")
+```
+
+**2. LLM fallback**
+
+解析失败时不报错退出，交给 agent 通过 tool 完成：
+
+```typescript
+const parsed = parseRelativeTime(userInput);
+if (!parsed) {
+  // 回退：让 agent 用 alarm_set tool 处理
+  pi.sendUserMessage(
+    `The user wants to set an alarm with relative time: "${userInput}". ` +
+    `Please use alarm_now to check the current time, then use alarm_set to set it.`
+  );
+  return;
+}
+```
+
+### 消息呈现
+
+**内容优先，元数据次要**
+
+提醒内容放主行突出显示，元数据（ID、时间）放 footer dimmed：
+
+```typescript
+pi.registerMessageRenderer("alarm", (message, _options, theme) => {
+  let text =
+    theme.fg("warning", "⏰ ") +
+    theme.fg("text", message.content);    // 主行：提醒内容
+
+  text += "\n" +
+    theme.fg("dim", `#${alarmId} @ ${isoTime}`);  // footer：元数据
+
+  return new Text(text, 0, 0);
+});
+```
+
+LLM 通过 `pi.sendMessage` 收到的 `content` 应直接是核心内容本身，不包装冗余前缀。
+
+### 插件 README 中的命名展示
+
+插件 README 应明确区分 tool 和 command 并标注命名风格：
+
+```markdown
+## Tools (agent-facing, snake_case)
+
+### `alarm_set`
+...
+
+### `alarm_schedule`
+...
+
+## Commands (user-facing, kebab-case)
+
+### `/alarm-set`
+...
+
+### `/alarm-list`
+...
+```
+
 ## 发布流程
 
 按以下步骤依次执行，不可跳过。
