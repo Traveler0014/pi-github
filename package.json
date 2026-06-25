@@ -1,21 +1,20 @@
 {
-  "name": "pi-extension-template",
-  "version": "1.0.0",
-  "description": "Template repository for pi extensions — pick a layout and start building",
+  "name": "pi-github",
+  "version": "0.1.0",
+  "description": "Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi",
   "keywords": [
     "pi-package"
   ],
   "author": "",
   "license": "MIT",
-  "repository": "git@github.com:Traveler0014/pi-extension-template.git",
-  "installUrl": "https://github.com/Traveler0014/pi-extension-template.git",
+  "repository": "git@github.com:Traveler0014/pi-github.git",
+  "installUrl": "https://github.com/Traveler0014/pi-github.git",
   "scripts": {
     "update-docs": "tsx scripts/update-docs.ts"
   },
   "pi": {
     "extensions": [
-      "example-provider",
-      "tools/example-plugin"
+      "tools/pi-github"
     ]
   },
   "devDependencies": {
