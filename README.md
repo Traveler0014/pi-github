@@ -9,7 +9,7 @@ Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi
 
 | Extension | Providers | Commands | Tools |
 |-----------|-----------|----------|-------|
-| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get`, `gh_instance_list`, `gh_instance_check` |
+| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get`, `gh_instance_list`, `gh_instance_check` |
 
 ### [tools/pi-github](./tools/pi-github)
 
@@ -28,6 +28,7 @@ Multi-platform Git forge automation — interact with GitHub, Gitea, and Forgejo
 - `gh_issue_list` — List issues from a Git repository with optional filters (state, labels). Use the optional 'instance' parameter to target a specific platform.
 - `gh_issue_get` — Get detailed information about a specific issue. Use the optional 'instance' parameter to target a specific platform.
 - `gh_issue_comment` — Add a comment to an existing issue. Use the optional 'instance' parameter to target a specific platform.
+- `gh_issue_update`
 - `gh_pr_create` — Create a new pull request. Use the optional 'instance' parameter to target a specific platform.
 - `gh_pr_list` — List pull requests from a Git repository with optional filters. Use the optional 'instance' parameter to target a specific platform.
 - `gh_pr_get` — Get detailed information about a specific pull request. Use the optional 'instance' parameter to target a specific platform.

@@ -7,8 +7,9 @@
  *
  * ## What this extension provides
  *
- * - Tools: gh_issue_create, gh_issue_list, gh_issue_get, gh_issue_comment,
- *          gh_pr_create, gh_pr_list, gh_pr_get, gh_repo_get
+ * - Tools: gh_issue_create, gh_issue_list, gh_issue_get, gh_issue_comment, gh_issue_update,
+ *          gh_pr_create, gh_pr_list, gh_pr_get, gh_repo_get,
+ *          gh_instance_list, gh_instance_check
  * - Commands: /gh-login, /gh-default, /gh-forget, /gh-status
  *
  * ## Testing
@@ -374,6 +375,116 @@ export default function (pi: ExtensionAPI) {
 
     renderResult(_result, _options, theme, _context) {
       return new Text(theme.fg("success", "Comment added"), 0, 0);
+    },
+  });
+
+  // ── gh_issue_update ────────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_issue_update",
+    label: "Update Issue",
+    description:
+      "Update an existing issue — change title, body, state (open/closed), labels, assignees, or milestone. " +
+      "Use the optional 'instance' parameter to target a specific platform (e.g. 'github', 'gitea'). " +
+      "Only the fields you provide will be updated; omit fields to leave them unchanged.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        number: numberParam,
+        title: {
+          type: "string",
+          description: "New title (optional — leave unchanged if omitted)",
+        },
+        body: {
+          type: "string",
+          description: "New body/description in Markdown (optional)",
+        },
+        state: {
+          type: "string",
+          enum: ["open", "closed"],
+          description: "Set to 'closed' to close the issue, 'open' to reopen",
+        },
+        labels: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replacement label array (replaces all existing labels). Omit to leave unchanged.",
+        },
+        assignees: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replacement assignee array (usernames). Omit to leave unchanged.",
+        },
+        milestone: {
+          description: "Milestone number, or null to clear. Omit to leave unchanged.",
+        },
+      },
+      required: ["repo", "number"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) {
+        return textResult(
+          `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
+          { error: "invalid repo format", instance: instanceName },
+        );
+      }
+
+      const body: Record<string, unknown> = {};
+      if (params.title !== undefined) body.title = params.title;
+      if (params.body !== undefined) body.body = params.body;
+      if (params.state !== undefined) body.state = params.state;
+      if (params.labels !== undefined) body.labels = params.labels;
+      if (params.assignees !== undefined) body.assignees = params.assignees;
+      if (params.milestone !== undefined) body.milestone = params.milestone;
+
+      if (Object.keys(body).length === 0) {
+        return textResult(
+          `Error: at least one field to update must be provided (title, body, state, labels, assignees, or milestone)`,
+          { error: "no fields to update", instance: instanceName },
+        );
+      }
+
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}`;
+      const { status, data } = await apiRequest(platform, "PATCH", apiPath, body);
+
+      if (status < 200 || status >= 300) {
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+      }
+
+      const d = data as Record<string, unknown>;
+      const changes: string[] = [];
+      if (params.title !== undefined) changes.push("title");
+      if (params.body !== undefined) changes.push("body");
+      if (params.state !== undefined) changes.push(`state → ${params.state}`);
+      if (params.labels !== undefined) changes.push("labels");
+      if (params.assignees !== undefined) changes.push("assignees");
+      if (params.milestone !== undefined) changes.push("milestone");
+
+      const text = [
+        `[${instanceName}] Issue updated: #${d.number} — ${d.title}`,
+        `State: ${d.state} | Updated: ${changes.join(", ")}`,
+        `URL: ${d.html_url}`,
+      ].join("\n");
+      return textResult(text, { number: d.number, title: d.title, state: d.state, url: d.html_url, instance: instanceName });
+    },
+
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`issue update[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      if (args.state) text += " " + theme.fg(args.state === "closed" ? "error" : "success", args.state);
+      if (args.title) text += " " + theme.fg("muted", `"${args.title}"`);
+      return new Text(text, 0, 0);
+    },
+
+    renderResult(result, _options, theme, _context) {
+      const content = result.content[0];
+      if (content?.type === "text") {
+        const first = content.text.split("\n")[0];
+        return new Text(theme.fg("success", first), 0, 0);
+      }
+      return new Text(theme.fg("success", "Updated"), 0, 0);
     },
   });
 
