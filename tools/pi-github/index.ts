@@ -822,41 +822,44 @@ export default function (pi: ExtensionAPI) {
         gitea: "https://gitea.com/api/v1",
         forgejo: "",
       };
-      const baseUrl = await ctx.ui.input(
-        "Enter API base URL:",
-        defaultUrls[platformType] || "",
+      const defaultUrl = defaultUrls[platformType] || "";
+      const baseUrlInput = await ctx.ui.input(
+        "Enter API base URL (Enter for default):",
+        defaultUrl || "https://example.com/api/v1",
       );
-      if (baseUrl === undefined) {
+      if (baseUrlInput === undefined) {
         ctx.ui.notify("Configuration cancelled.", "info");
         return;
       }
-      if (!baseUrl.trim()) {
+      const baseUrl = baseUrlInput.trim() || defaultUrl;
+      if (!baseUrl) {
         ctx.ui.notify("Base URL is required.", "error");
         return;
       }
 
       // Step 3: Token
-      const token = await ctx.ui.input("Enter access token:", "");
-      if (token === undefined) {
+      const tokenInput = await ctx.ui.input("Enter access token:", "ghp_...");
+      if (tokenInput === undefined) {
         ctx.ui.notify("Configuration cancelled.", "info");
         return;
       }
-      if (!token.trim()) {
+      const token = tokenInput.trim();
+      if (!token) {
         ctx.ui.notify("Access token is required.", "error");
         return;
       }
 
       // Step 4: Instance name
       const defaultName = existingNames.length > 0 ? `${platformType}-${existingNames.length + 1}` : platformType;
-      const name = await ctx.ui.input("Instance name (used as the 'instance' value in tools):", defaultName);
-      if (name === undefined) {
+      const nameInput = await ctx.ui.input("Instance name (Enter for default):", defaultName);
+      if (nameInput === undefined) {
         ctx.ui.notify("Configuration cancelled.", "info");
         return;
       }
-      const configName = name.trim() || defaultName;
+      const configName = nameInput.trim() || defaultName;
 
       const detectedType =
-        platformType === "github" ? detectPlatform(baseUrl.trim()) : platformType;
+        platformType === "github" ? detectPlatform(baseUrl) : platformType;
 
       // Step 5: Set as default?
       const setDefault =
