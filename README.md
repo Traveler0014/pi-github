@@ -11,6 +11,7 @@ Template repository for pi extensions — pick a layout and start building
 |-----------|-----------|----------|-------|
 | [example-provider](./example-provider) | `example` | — | — |
 | [tools/example-plugin](./tools/example-plugin) | — | `/example` | `example_tool` |
+| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get` |
 
 ### [example-provider](./example-provider)
 
@@ -40,6 +41,30 @@ Example tool and command extension for pi — demonstrates how to register custo
 **Tools:**
 
 - `example_tool` — An example tool — replace with your actual implementation
+
+---
+
+### [tools/pi-github](./tools/pi-github)
+
+Multi-platform Git forge automation — interact with GitHub, Gitea, and Forgejo APIs through pi, with configurable base URL and authorization for self-hosted instances. Supports **multiple instances** identified by name, so an agent can operate across different platforms and accounts simultaneously.
+
+**Commands:**
+
+- `/gh-login` — Add or update a platform instance (GitHub, Gitea, or Forgejo)
+- `/gh-default` — Set the default platform instance for subsequent tool calls
+- `/gh-forget` — Remove a configured platform instance
+- `/gh-status` — Show all configured platform instances
+
+**Tools:**
+
+- `gh_issue_create` — Create a new issue on a Git repository. Use the optional 'instance' parameter to target a specific platform (e.g. 'github', 'gitea'). Configure instances via /gh-login.
+- `gh_issue_list` — List issues from a Git repository with optional filters (state, labels). Use the optional 'instance' parameter to target a specific platform.
+- `gh_issue_get` — Get detailed information about a specific issue. Use the optional 'instance' parameter to target a specific platform.
+- `gh_issue_comment` — Add a comment to an existing issue. Use the optional 'instance' parameter to target a specific platform.
+- `gh_pr_create` — Create a new pull request. Use the optional 'instance' parameter to target a specific platform.
+- `gh_pr_list` — List pull requests from a Git repository with optional filters. Use the optional 'instance' parameter to target a specific platform.
+- `gh_pr_get` — Get detailed information about a specific pull request. Use the optional 'instance' parameter to target a specific platform.
+- `gh_repo_get` — Get information about a Git repository. Use the optional 'instance' parameter to target a specific platform.
 
 ---
 

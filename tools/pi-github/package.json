@@ -1,0 +1,13 @@
+{
+  "name": "pi-github",
+  "version": "0.0.1",
+  "description": "Multi-platform Git forge automation (GitHub, Gitea, Forgejo) with configurable base URL and auth",
+  "keywords": ["pi-package", "pi-tool", "git", "github", "gitea", "forgejo"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
