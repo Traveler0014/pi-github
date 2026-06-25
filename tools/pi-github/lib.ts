@@ -27,10 +27,17 @@ export interface GitPluginConfig {
 // Constants
 // =============================================================================
 
-export const CONFIG_FILE = path.join(os.homedir(), ".pi", "agent", "pi-github-config.json");
+const GLOBAL_CONFIG_FILE = path.join(os.homedir(), ".pi", "agent", "pi-github-config.json");
+
+/** Resolve config path: project-local first, then global fallback */
+export function getConfigPath(): string {
+  const local = path.join(process.cwd(), ".pi-github-config.json");
+  if (fs.existsSync(local)) return local;
+  return GLOBAL_CONFIG_FILE;
+}
 
 export const GITHUB_DEFAULT_BASE = "https://api.github.com";
-export const GITEA_DEFAULT_BASE = "https://gitea.com/api/v1";
+export const GITEA_DEFAULT_BASE = "https://gitea.com";
 
 // =============================================================================
 // Platform Detection
@@ -53,17 +60,18 @@ export function detectPlatform(baseUrl: string): PlatformType {
 // Config Persistence
 // =============================================================================
 
-export function ensureConfigDir(): void {
-  const dir = path.dirname(CONFIG_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+let _configPath: string | null = null;
+
+/** Set explicit config path (for testing or project-scoped usage) */
+export function setConfigPath(p: string): void {
+  _configPath = p;
 }
 
 export function loadConfig(): GitPluginConfig {
+  const file = _configPath ?? getConfigPath();
   try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
+    if (fs.existsSync(file)) {
+      const raw = fs.readFileSync(file, "utf-8");
       return JSON.parse(raw);
     }
   } catch {
@@ -73,8 +81,16 @@ export function loadConfig(): GitPluginConfig {
 }
 
 export function saveConfig(config: GitPluginConfig): void {
-  ensureConfigDir();
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+  const file = _configPath ?? getConfigPath();
+  ensureConfigDirFor(file);
+  fs.writeFileSync(file, JSON.stringify(config, null, 2), "utf-8");
+}
+
+function ensureConfigDirFor(filePath: string): void {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 }
 
 /** Resolve config by instance name. Falls back to default. */
@@ -129,7 +145,7 @@ export async function apiRequest(
   apiPath: string,
   body?: unknown,
 ): Promise<{ status: number; data: unknown }> {
-  const url = buildApiUrl(platform.baseUrl, apiPath);
+  const url = buildApiUrl(platform.type, platform.baseUrl, apiPath);
   const headers = buildHeaders(platform);
 
   const options: RequestInit = { method, headers };
@@ -170,18 +186,30 @@ export function maskToken(token: string): string {
   return token.slice(0, 4) + "..." + token.slice(-4);
 }
 
-/** Build the full API URL */
-export function buildApiUrl(baseUrl: string, apiPath: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${apiPath}`;
+/** Build the full API URL, auto-appending /api/v1 for Gitea/Forgejo */
+export function buildApiUrl(platformType: PlatformType, baseUrl: string, apiPath: string): string {
+  let url = baseUrl.replace(/\/+$/, "");
+  if ((platformType === "gitea" || platformType === "forgejo") && !url.endsWith("/api/v1")) {
+    url += "/api/v1";
+  }
+  return `${url}${apiPath}`;
 }
 
-/** Format an API error for agent consumption */
-export function formatApiError(status: number, data: unknown, apiPath: string): string {
+/** Format an API error for agent consumption with contextual hints */
+export function formatApiError(status: number, data: unknown, apiPath: string, platformType?: PlatformType): string {
   const msg =
     data && typeof data === "object" && "message" in data
       ? (data as { message: string }).message
       : JSON.stringify(data);
-  return `API error ${status} on ${apiPath}: ${msg}`;
+  let hint = "";
+  if (status === 401) {
+    hint = " — Token may be expired or invalid. Run /gh-login to reconfigure.";
+  } else if (status === 404) {
+    hint = " — Repository may not exist, be private, or you may lack access.";
+  } else if ((platformType === "gitea" || platformType === "forgejo") && status === 404) {
+    hint = " — Also check: Gitea/Forgejo API requires /api/v1 prefix in baseUrl (auto-applied by buildApiUrl).";
+  }
+  return `API error ${status} on ${apiPath}: ${msg}${hint}`;
 }
 
 /** Build query string with correct pagination param per platform */
@@ -196,4 +224,26 @@ export function buildListQuery(
   const pp = paginationParam(platform);
   q.set(pp, String(Math.min(params.perPage ?? 30, 100)));
   return q.toString();
+}
+
+// =============================================================================
+// Field Normalization (cross-platform compatibility)
+// =============================================================================
+
+/**
+ * Normalize repository fields across platforms.
+ * GitHub uses `stargazers_count`, Forgejo/Gitea use `stars_count`.
+ */
+export function normalizeRepoFields(
+  platformType: PlatformType,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const result = { ...data };
+  if (platformType !== "github") {
+    // Only add stargazers_count if it's not already present from the response
+    if (!("stargazers_count" in data) && "stars_count" in data && data.stars_count !== undefined) {
+      result.stargazers_count = data.stars_count;
+    }
+  }
+  return result;
 }

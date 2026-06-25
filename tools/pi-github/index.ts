@@ -24,10 +24,13 @@ import {
   detectPlatform,
   formatApiError,
   getConfig,
+  getConfigPath,
   GITHUB_DEFAULT_BASE,
+  GITEA_DEFAULT_BASE,
   listInstances,
   loadConfig,
   maskToken,
+  normalizeRepoFields,
   parseRepo,
   paginationParam,
   saveConfig,
@@ -133,12 +136,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo", "title"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -150,16 +153,16 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "POST", apiPath, body);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const d = data as Record<string, unknown>;
       const text = [
-        `Issue created: #${d.number} — ${d.title}`,
+        `[${instanceName}] Issue created: #${d.number} — ${d.title}`,
         `URL: ${d.html_url}`,
         `State: ${d.state}`,
       ].join("\n");
-      return textResult(text, { number: d.number, title: d.title, url: d.html_url });
+      return textResult(text, { number: d.number, title: d.title, url: d.html_url, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -201,12 +204,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -215,12 +218,12 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const issues = data as Array<Record<string, unknown>>;
       const filtered = issues.filter((i) => !i.pull_request);
-      if (filtered.length === 0) return textResult("No issues found.");
+      if (filtered.length === 0) return textResult(`[${instanceName}] No issues found.`, { count: 0, instance: instanceName });
 
       const text = filtered
         .map((i) => {
@@ -231,7 +234,7 @@ export default function (pi: ExtensionAPI) {
           return `#${i.number} ${i.title} (${i.state})${labels}\n  ${i.html_url}`;
         })
         .join("\n\n");
-      return textResult(text, { count: filtered.length });
+      return textResult(text, { count: filtered.length, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -267,12 +270,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo", "number"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -280,7 +283,7 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const i = data as Record<string, unknown>;
@@ -305,7 +308,7 @@ export default function (pi: ExtensionAPI) {
         ``,
         i.body || "(no description)",
       ].join("\n");
-      return textResult(text, { number: i.number, title: i.title, state: i.state });
+      return textResult(text, { number: i.number, title: i.title, state: i.state, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -342,12 +345,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo", "number", "body"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -355,11 +358,11 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "POST", apiPath, { body: params.body });
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const c = data as Record<string, unknown>;
-      return textResult(`Comment added: ${c.html_url}`, { url: c.html_url });
+      return textResult(`[${instanceName}] Comment added: ${c.html_url}`, { url: c.html_url, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -394,12 +397,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo", "title", "head", "base"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -415,18 +418,18 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "POST", apiPath, body);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const d = data as Record<string, unknown>;
       const draftLabel = d.draft ? " [DRAFT]" : "";
       const text = [
-        `PR created: #${d.number} — ${d.title}${draftLabel}`,
+        `[${instanceName}] PR created: #${d.number} — ${d.title}${draftLabel}`,
         `URL: ${d.html_url}`,
         `Branch: ${d.head} → ${d.base}`,
         `State: ${d.state}`,
       ].join("\n");
-      return textResult(text, { number: d.number, title: d.title, url: d.html_url });
+      return textResult(text, { number: d.number, title: d.title, url: d.html_url, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -467,12 +470,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -481,11 +484,11 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const prs = data as Array<Record<string, unknown>>;
-      if (prs.length === 0) return textResult("No pull requests found.");
+      if (prs.length === 0) return textResult(`[${instanceName}] No pull requests found.`, { count: 0, instance: instanceName });
 
       const text = prs
         .map((pr) => {
@@ -493,7 +496,7 @@ export default function (pi: ExtensionAPI) {
           return `#${pr.number} ${pr.title} (${pr.state})${draftLabel}\n  ${pr.head} → ${pr.base}\n  ${pr.html_url}`;
         })
         .join("\n\n");
-      return textResult(text, { count: prs.length });
+      return textResult(text, { count: prs.length, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -529,12 +532,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo", "number"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -542,7 +545,7 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
       const pr = data as Record<string, unknown>;
@@ -558,7 +561,7 @@ export default function (pi: ExtensionAPI) {
         ``,
         pr.body || "(no description)",
       ].join("\n");
-      return textResult(text, { number: pr.number, title: pr.title, state: pr.state });
+      return textResult(text, { number: pr.number, title: pr.title, state: pr.state, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -593,12 +596,12 @@ export default function (pi: ExtensionAPI) {
       required: ["repo"],
     },
     async execute(_toolCallId, params) {
-      const platform = resolveConfig(params.instance).config;
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
       if (!parsed) {
         return textResult(
           `Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`,
-          { error: "invalid repo format" },
+          { error: "invalid repo format", instance: instanceName },
         );
       }
 
@@ -606,10 +609,10 @@ export default function (pi: ExtensionAPI) {
       const { status, data } = await apiRequest(platform, "GET", apiPath);
 
       if (status < 200 || status >= 300) {
-        return textResult(formatApiError(status, data, apiPath), { error: "api error", status });
+        return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
       }
 
-      const r = data as Record<string, unknown>;
+      const r = normalizeRepoFields(platform.type, data as Record<string, unknown>) as Record<string, unknown>;
       const lang = r.language ? `\nLanguage: ${r.language}` : "";
       const license =
         r.license && typeof r.license === "object"
@@ -621,16 +624,16 @@ export default function (pi: ExtensionAPI) {
           : "";
 
       const text = [
-        `${r.full_name}`,
+        `[${instanceName}] ${r.full_name}`,
         `${r.description || "(no description)"}`,
         ``,
-        `Stars: ${r.stargazers_count} | Forks: ${r.forks_count} | Watchers: ${r.watchers_count}`,
-        `Open Issues: ${r.open_issues_count} | Default Branch: ${r.default_branch}`,
+        `Stars: ${r.stargazers_count ?? "?"} | Forks: ${r.forks_count ?? "?"} | Watchers: ${r.watchers_count ?? "?"}`,
+        `Open Issues: ${r.open_issues_count ?? "?"} | Default Branch: ${r.default_branch}`,
         `Visibility: ${r.visibility ?? (r.private ? "private" : "public")} | Archived: ${r.archived ?? false}`,
         `URL: ${r.html_url}`,
         `Clone: ${r.clone_url}${lang}${license}${topics}`,
       ].join("\n");
-      return textResult(text, { fullName: r.full_name, stars: r.stargazers_count });
+      return textResult(text, { fullName: r.full_name, stars: r.stargazers_count, instance: instanceName });
     },
 
     renderCall(args, theme, _context) {
@@ -650,6 +653,102 @@ export default function (pi: ExtensionAPI) {
         return new Text(theme.fg("muted", fullName) + theme.fg("dim", descLabel), 0, 0);
       }
       return new Text(theme.fg("muted", "Done"), 0, 0);
+    },
+  });
+
+  // ── gh_instance_list ──────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_instance_list",
+    label: "List Instances",
+    description:
+      "List all configured platform instances with their types, URLs, and which is the default. Use this when you need to know what platforms are available.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    async execute(_toolCallId, _params) {
+      const config = loadConfig();
+      const names = Object.keys(config.platforms);
+      if (names.length === 0) {
+        return textResult("No instances configured. Run /gh-login to set up.", { count: 0 });
+      }
+      const lines: string[] = [`Instances (${names.length}):`, ""];
+      for (const name of names) {
+        const p = config.platforms[name];
+        const active = name === config.default ? " ★ DEFAULT" : "";
+        lines.push(`  ${name}${active}`);
+        lines.push(`    type: ${p.type} | url: ${p.baseUrl}`);
+        lines.push(`    token: ${maskToken(p.token)}`);
+        lines.push("");
+      }
+      return textResult(lines.join("\n"), { count: names.length, default: config.default, instances: names });
+    },
+
+    renderCall(_args, theme, _context) {
+      return new Text(theme.fg("toolTitle", theme.bold("instances list")), 0, 0);
+    },
+
+    renderResult(result, _options, theme, _context) {
+      const content = result.content[0];
+      if (content?.type === "text") {
+        const count = (content.text.match(/  \w+/g) || []).length;
+        return new Text(theme.fg("muted", `${count} instance(s)`), 0, 0);
+      }
+      return new Text(theme.fg("muted", "Done"), 0, 0);
+    },
+  });
+
+  // ── gh_instance_check ─────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_instance_check",
+    label: "Check Instance",
+    description:
+      "Check connectivity and token validity for a configured platform instance. Use the optional 'instance' parameter; defaults to the current default instance.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+      },
+      required: [],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+
+      // Probe the API version endpoint (works across platforms)
+      const { status, data } = await apiRequest(platform, "GET", "/version");
+
+      const lines: string[] = [
+        `[${instanceName}] ${platform.type}`,
+        `URL: ${platform.baseUrl}`,
+        `Token: ${maskToken(platform.token)}`,
+      ];
+
+      if (status === 200) {
+        const d = data as Record<string, unknown>;
+        lines.push(`Status: OK (version: ${d.version || "unknown"})`);
+        return textResult(lines.join("\n"), { ok: true, instance: instanceName, version: d.version });
+      } else if (status === 401 || status === 403) {
+        lines.push(`Status: Token invalid or expired (HTTP ${status})`);
+        lines.push("Run /gh-login to reconfigure.");
+        return textResult(lines.join("\n"), { ok: false, instance: instanceName, status });
+      } else {
+        lines.push(`Status: Unreachable (HTTP ${status})`);
+        return textResult(lines.join("\n"), { ok: false, instance: instanceName, status });
+      }
+    },
+
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`check [${inst}]`)), 0, 0);
+    },
+
+    renderResult(result, _options, theme, _context) {
+      const details = result.details as Record<string, unknown> | undefined;
+      if (details?.ok) {
+        return new Text(theme.fg("success", `OK (${details.instance ?? "?"})`), 0, 0);
+      }
+      return new Text(theme.fg("error", "Failed"), 0, 0);
     },
   });
 
@@ -676,14 +775,19 @@ export default function (pi: ExtensionAPI) {
 
       const defaultUrls: Record<string, string> = {
         github: GITHUB_DEFAULT_BASE,
-        gitea: "https://gitea.com/api/v1",
+        gitea: GITEA_DEFAULT_BASE,
         forgejo: "",
       };
       const defaultUrl = defaultUrls[platformType] || "";
-      const baseUrlInput = await ctx.ui.input("API base URL (Enter=default):", defaultUrl || "https://example.com/api/v1");
+      const hint = platformType === "github"
+        ? "https://api.github.com"
+        : "https://your-domain.com (e.g. https://repo.trav.one)";
+      const baseUrlInput = await ctx.ui.input(`API base URL (Enter=default):`, defaultUrl || hint);
       if (baseUrlInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
-      const baseUrl = baseUrlInput.trim() || defaultUrl;
+      let baseUrl = baseUrlInput.trim() || defaultUrl;
       if (!baseUrl) { ctx.ui.notify("Base URL required.", "error"); return; }
+      // Strip /api/v1 suffix — buildApiUrl auto-appends for Gitea/Forgejo
+      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
 
       const tokenInput = await ctx.ui.input("Access token:", "ghp_...");
       if (tokenInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
@@ -704,7 +808,7 @@ export default function (pi: ExtensionAPI) {
       const config = loadConfig();
       config.platforms[configName] = {
         type: detectedType,
-        baseUrl: baseUrl.trim().replace(/\/+$/, ""),
+        baseUrl: baseUrl,
         token,
       };
       if (setDefault || existingNames.length === 0) config.default = configName;
@@ -724,6 +828,8 @@ export default function (pi: ExtensionAPI) {
     description: "Set the default platform instance for subsequent tool calls",
     async handler(_args, ctx) {
       const config = loadConfig();
+      const configPath = getConfigPath();
+      const scope = configPath.startsWith(process.cwd()) ? "project-local" : "global";
       const names = Object.keys(config.platforms);
       if (names.length === 0) {
         ctx.ui.notify("No instances configured. Run /gh-login first.", "info");
@@ -731,11 +837,11 @@ export default function (pi: ExtensionAPI) {
       }
       const choices = names.map((n) =>
         `${n} (${config.platforms[n].type} — ${config.platforms[n].baseUrl})`);
-      const chosen = await ctx.ui.select("Select default instance:", choices);
+      const chosen = await ctx.ui.select(`Select default instance (${scope} config):`, choices);
       if (!chosen) { ctx.ui.notify("Cancelled.", "info"); return; }
       config.default = chosen.split(" ")[0];
       saveConfig(config);
-      ctx.ui.notify(`Default → "${config.default}".`, "info");
+      ctx.ui.notify(`Default → "${config.default}" (${scope}).`, "info");
     },
   });
 
@@ -775,12 +881,14 @@ export default function (pi: ExtensionAPI) {
     description: "Show all configured platform instances",
     async handler(_args, ctx) {
       const config = loadConfig();
+      const configPath = getConfigPath();
+      const scope = configPath.startsWith(process.cwd()) ? "project-local" : "global";
       const names = Object.keys(config.platforms);
       if (names.length === 0) {
         ctx.ui.notify("No instances configured. Run /gh-login to set up.", "info");
         return;
       }
-      const lines: string[] = [`Instances (${names.length}):`, ""];
+      const lines: string[] = [`Instances (${names.length}) — ${scope}:`, ""];
       for (const name of names) {
         const p = config.platforms[name];
         const active = name === config.default ? " ★ DEFAULT" : "";

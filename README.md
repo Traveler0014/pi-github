@@ -9,7 +9,7 @@ Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi
 
 | Extension | Providers | Commands | Tools |
 |-----------|-----------|----------|-------|
-| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get` |
+| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get`, `gh_instance_list`, `gh_instance_check` |
 
 ### [tools/pi-github](./tools/pi-github)
 
@@ -32,6 +32,8 @@ Multi-platform Git forge automation — interact with GitHub, Gitea, and Forgejo
 - `gh_pr_list` — List pull requests from a Git repository with optional filters. Use the optional 'instance' parameter to target a specific platform.
 - `gh_pr_get` — Get detailed information about a specific pull request. Use the optional 'instance' parameter to target a specific platform.
 - `gh_repo_get` — Get information about a Git repository. Use the optional 'instance' parameter to target a specific platform.
+- `gh_instance_list` — List all configured platform instances with their types, URLs, and which is the default. Use this when you need to know what platforms are available.
+- `gh_instance_check` — Check connectivity and token validity for a configured platform instance. Use the optional 'instance' parameter; defaults to the current default instance.
 
 ---
 

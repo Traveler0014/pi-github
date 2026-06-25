@@ -12,10 +12,12 @@ import {
   detectPlatform,
   formatApiError,
   getConfig,
+  getConfigPath,
   listInstances,
   maskToken,
   paginationParam,
   parseRepo,
+  normalizeRepoFields,
   apiRequest,
   type GitPluginConfig,
   type PlatformConfig,
@@ -164,15 +166,39 @@ describe("paginationParam", () => {
 // =============================================================================
 
 describe("buildApiUrl", () => {
-  it("joins base URL and path", () => {
-    expect(buildApiUrl("https://api.github.com", "/repos/owner/repo")).toBe(
+  it("joins base URL and path for GitHub", () => {
+    expect(buildApiUrl("github", "https://api.github.com", "/repos/owner/repo")).toBe(
       "https://api.github.com/repos/owner/repo",
     );
   });
 
   it("strips trailing slash from base URL", () => {
-    expect(buildApiUrl("https://api.github.com/", "/repos/owner/repo")).toBe(
+    expect(buildApiUrl("github", "https://api.github.com/", "/repos/owner/repo")).toBe(
       "https://api.github.com/repos/owner/repo",
+    );
+  });
+
+  it("auto-appends /api/v1 for Gitea", () => {
+    expect(buildApiUrl("gitea", "https://gitea.example.com", "/repos/owner/repo")).toBe(
+      "https://gitea.example.com/api/v1/repos/owner/repo",
+    );
+  });
+
+  it("auto-appends /api/v1 for Forgejo", () => {
+    expect(buildApiUrl("forgejo", "https://repo.trav.one", "/repos/owner/repo")).toBe(
+      "https://repo.trav.one/api/v1/repos/owner/repo",
+    );
+  });
+
+  it("does not duplicate /api/v1 if already present", () => {
+    expect(buildApiUrl("gitea", "https://gitea.example.com/api/v1", "/repos/owner/repo")).toBe(
+      "https://gitea.example.com/api/v1/repos/owner/repo",
+    );
+  });
+
+  it("GitHub URLs are not modified", () => {
+    expect(buildApiUrl("github", "https://github.mycompany.com/api/v3", "/repos/owner/repo")).toBe(
+      "https://github.mycompany.com/api/v3/repos/owner/repo",
     );
   });
 });
@@ -237,19 +263,28 @@ describe("maskToken", () => {
 
 describe("formatApiError", () => {
   it("formats error with message field", () => {
-    expect(formatApiError(404, { message: "Not Found" }, "/repos/a/b")).toBe(
+    expect(formatApiError(404, { message: "Not Found" }, "/repos/a/b")).toContain(
       "API error 404 on /repos/a/b: Not Found",
     );
   });
 
+  it("404 adds hint about private repos", () => {
+    const err = formatApiError(404, { message: "Not Found" }, "/repos/a/b");
+    expect(err).toContain("private");
+  });
+
+  it("401 adds hint about expired token", () => {
+    const err = formatApiError(401, { message: "Bad credentials" }, "/repos/a/b");
+    expect(err).toContain("Token");
+    expect(err).toContain("/gh-login");
+  });
+
   it("formats error without message field", () => {
-    expect(formatApiError(500, { error: "boom" }, "/test")).toBe(
-      'API error 500 on /test: {"error":"boom"}',
-    );
+    expect(formatApiError(500, { error: "boom" }, "/test")).toContain('API error 500 on /test: {"error":"boom"}');
   });
 
   it("formats error with null data", () => {
-    expect(formatApiError(403, null, "/test")).toBe("API error 403 on /test: null");
+    expect(formatApiError(403, null, "/test")).toContain("API error 403 on /test: null");
   });
 });
 
@@ -294,6 +329,45 @@ describe("listInstances", () => {
 
   it("returns placeholder when empty", () => {
     expect(listInstances({ platforms: {}, default: "" })).toBe("(none configured)");
+  });
+});
+
+// =============================================================================
+// normalizeRepoFields
+// =============================================================================
+
+describe("normalizeRepoFields", () => {
+  it("passes through GitHub fields unchanged", () => {
+    const input = { full_name: "a/b", stargazers_count: 42 };
+    const result = normalizeRepoFields("github", input);
+    expect(result).toEqual(input);
+    expect(result.stargazers_count).toBe(42);
+  });
+
+  it("maps stars_count to stargazers_count for Gitea", () => {
+    const input = { full_name: "a/b", stars_count: 99 };
+    const result = normalizeRepoFields("gitea", input);
+    expect(result.stargazers_count).toBe(99);
+    expect(result.stars_count).toBe(99); // original preserved
+  });
+
+  it("maps stars_count for Forgejo", () => {
+    const input = { full_name: "a/b", stars_count: 7 };
+    const result = normalizeRepoFields("forgejo", input);
+    expect(result.stargazers_count).toBe(7);
+  });
+
+  it("does not overwrite existing stargazers_count", () => {
+    const input = { full_name: "a/b", stargazers_count: 42, stars_count: 99 };
+    const result = normalizeRepoFields("gitea", input);
+    // stars_count is present but stargazers_count already exists — preserve original
+    expect(result.stargazers_count).toBe(42);
+  });
+
+  it("handles missing fields gracefully", () => {
+    const input = { full_name: "a/b" };
+    const result = normalizeRepoFields("forgejo", input);
+    expect(result.stargazers_count).toBeUndefined();
   });
 });
 
