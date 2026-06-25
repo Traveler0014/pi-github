@@ -355,3 +355,4 @@ pi install <installUrl>  # 确认可安装
 - 脚本支持递归扫描（最深 2 层），兼容 Layout 2 和 Layout 3
 - 插件 README 中的安装命令使用 HTTPS 地址（`installUrl`），不使用 SSH
 - 裸 `.ts` 文件（Layout 1）不支持版本管理和 `pi install`，不推荐用于发布
+- **首次发布前必须删除示例插件**（`example-provider`、`tools/example-plugin` 等模板目录），确保 `package.json` 的 `pi.extensions` 只包含实际插件路径

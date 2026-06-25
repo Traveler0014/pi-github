@@ -9,40 +9,7 @@ Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi
 
 | Extension | Providers | Commands | Tools |
 |-----------|-----------|----------|-------|
-| [example-provider](./example-provider) | `example` | — | — |
-| [tools/example-plugin](./tools/example-plugin) | — | `/example` | `example_tool` |
 | [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get` |
-
-### [example-provider](./example-provider)
-
-Example provider extension for pi — demonstrates the basic structure for creating a provider plugin.
-
-**Provider:** Example Provider (`example`)
-
-<details>
-<summary>Models (1)</summary>
-
-| Model | Context | Max Output | Image | Reasoning |
-|-------|---------|------------|-------|-----------|
-| `example-model` | 128K | 4K | ✗ | ✗ |
-
-</details>
-
----
-
-### [tools/example-plugin](./tools/example-plugin)
-
-Example tool and command extension for pi — demonstrates how to register custom tools and slash commands.
-
-**Commands:**
-
-- `/example` — An example command — replace with your actual implementation
-
-**Tools:**
-
-- `example_tool` — An example tool — replace with your actual implementation
-
----
 
 ### [tools/pi-github](./tools/pi-github)
 
