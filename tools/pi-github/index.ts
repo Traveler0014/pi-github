@@ -247,6 +247,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_issue_create ────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_issue_create",
+    label: "Create Issue",
     description:
       "Create a new issue on a Git repository. Use the optional 'instance' parameter to target a specific platform (e.g. 'github', 'gitea'). Configure instances via /gh-login.",
     parameters: {
@@ -315,6 +316,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_issue_list ──────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_issue_list",
+    label: "List Issues",
     description:
       "List issues from a Git repository with optional filters (state, labels). Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
@@ -358,9 +360,11 @@ export default function (pi: ExtensionAPI) {
       }
 
       const issues = data as Array<Record<string, unknown>>;
-      if (issues.length === 0) return "No issues found.";
+      // GitHub's /issues endpoint returns both issues and PRs; filter PRs out
+      const filtered = issues.filter((i) => !i.pull_request);
+      if (filtered.length === 0) return "No issues found.";
 
-      return issues
+      return filtered
         .map((i) => {
           const labels =
             Array.isArray(i.labels) && i.labels.length > 0
@@ -392,6 +396,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_issue_get ───────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_issue_get",
+    label: "Get Issue",
     description:
       "Get detailed information about a specific issue. Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
@@ -459,6 +464,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_issue_comment ───────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_issue_comment",
+    label: "Comment",
     description:
       "Add a comment to an existing issue. Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
@@ -509,6 +515,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_pr_create ───────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_pr_create",
+    label: "Create PR",
     description:
       "Create a new pull request. Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
@@ -589,6 +596,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_pr_list ─────────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_pr_list",
+    label: "List PRs",
     description:
       "List pull requests from a Git repository with optional filters. Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
@@ -657,6 +665,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_pr_get ──────────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_pr_get",
+    label: "Get PR",
     description:
       "Get detailed information about a specific pull request. Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
@@ -715,6 +724,7 @@ export default function (pi: ExtensionAPI) {
   // ── gh_repo_get ────────────────────────────────────────────────────────
   pi.registerTool({
     name: "gh_repo_get",
+    label: "Get Repo",
     description:
       "Get information about a Git repository. Use the optional 'instance' parameter to target a specific platform.",
     parameters: {
