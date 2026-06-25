@@ -1,0 +1,25 @@
+{
+  "name": "pi-extension-template",
+  "version": "1.0.0",
+  "description": "Template repository for pi extensions — pick a layout and start building",
+  "keywords": [
+    "pi-package"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": "git@github.com:Traveler0014/pi-extension-template.git",
+  "installUrl": "https://github.com/Traveler0014/pi-extension-template.git",
+  "scripts": {
+    "update-docs": "tsx scripts/update-docs.ts"
+  },
+  "pi": {
+    "extensions": [
+      "example-provider",
+      "tools/example-plugin"
+    ]
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
