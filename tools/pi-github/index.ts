@@ -782,7 +782,7 @@ export default function (pi: ExtensionAPI) {
   // ── /gh-login command ──────────────────────────────────────────────────
   pi.registerCommand("gh-login", {
     description: "Add or update a platform instance (GitHub, Gitea, or Forgejo)",
-    async execute(_args, ctx) {
+    async handler(_args, ctx) {
       // Show existing instances
       const existing = loadConfig();
       const existingNames = Object.keys(existing.platforms);
@@ -880,7 +880,7 @@ export default function (pi: ExtensionAPI) {
   // ── /gh-default command ─────────────────────────────────────────────────
   pi.registerCommand("gh-default", {
     description: "Set the default platform instance for subsequent tool calls",
-    async execute(_args, ctx) {
+    async handler(_args, ctx) {
       const config = loadConfig();
       const names = Object.keys(config.platforms);
 
@@ -909,7 +909,7 @@ export default function (pi: ExtensionAPI) {
   // ── /gh-forget command ─────────────────────────────────────────────────
   pi.registerCommand("gh-forget", {
     description: "Remove a configured platform instance",
-    async execute(_args, ctx) {
+    async handler(_args, ctx) {
       const config = loadConfig();
       const names = Object.keys(config.platforms);
 
@@ -955,7 +955,7 @@ export default function (pi: ExtensionAPI) {
   // ── /gh-status command ─────────────────────────────────────────────────
   pi.registerCommand("gh-status", {
     description: "Show all configured platform instances",
-    async execute(_args, ctx) {
+    async handler(_args, ctx) {
       const config = loadConfig();
       const names = Object.keys(config.platforms);
 
