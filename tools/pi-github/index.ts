@@ -20,6 +20,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import * as fs from "node:fs";
 import { Text } from "@earendil-works/pi-tui";
 import {
   apiRequest,
@@ -30,6 +31,7 @@ import {
   formatApiError,
   getConfig,
   getConfigPath,
+  getProjectConfigPath,
   GITHUB_DEFAULT_BASE,
   GITEA_DEFAULT_BASE,
   listInstances,
@@ -920,6 +922,15 @@ export default function (pi: ExtensionAPI) {
       const setDefault = existingNames.length === 0 ? true
         : await ctx.ui.confirm("Set as default?", `Make "${configName}" the default? (Current: ${existing.default || "none"})`);
 
+      // Scope: project or global?
+      const scopeChoice = await ctx.ui.select(
+        "Save to project config or global?",
+        ["Global (~/.pi/agent/) — available in all workspaces", "Project (.pi/) — this workspace only"],
+      );
+      if (scopeChoice === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
+      const isProject = scopeChoice.startsWith("Project");
+
+      // Load fresh config with merging
       const config = loadConfig();
       config.platforms[configName] = {
         type: detectedType,
@@ -928,10 +939,11 @@ export default function (pi: ExtensionAPI) {
       };
       if (setDefault || existingNames.length === 0) config.default = configName;
       else if (!config.default) config.default = configName;
-      saveConfig(config);
+      saveConfig(config, isProject);
 
+      const scopeLabel = isProject ? "project (.pi/)" : "global (~/.pi/agent/)";
       ctx.ui.notify(
-        `Instance "${configName}" (${detectedType}) saved.` +
+        `Instance "${configName}" (${detectedType}) saved to ${scopeLabel}.` +
           (config.default === configName ? " Set as default." : ""),
         "info",
       );
@@ -943,8 +955,7 @@ export default function (pi: ExtensionAPI) {
     description: "Set the default platform instance for subsequent tool calls",
     async handler(_args, ctx) {
       const config = loadConfig();
-      const configPath = getConfigPath();
-      const scope = configPath.startsWith(process.cwd()) ? "project-local" : "global";
+      const scope = fs.existsSync(getProjectConfigPath()) ? "project-local (loaded: global ← project)" : "global";
       const names = Object.keys(config.platforms);
       if (names.length === 0) {
         ctx.ui.notify("No instances configured. Run /gh-login first.", "info");
@@ -996,8 +1007,7 @@ export default function (pi: ExtensionAPI) {
     description: "Show all configured platform instances",
     async handler(_args, ctx) {
       const config = loadConfig();
-      const configPath = getConfigPath();
-      const scope = configPath.startsWith(process.cwd()) ? "project-local" : "global";
+      const scope = fs.existsSync(getProjectConfigPath()) ? "merged (global ← project)" : "global";
       const names = Object.keys(config.platforms);
       if (names.length === 0) {
         ctx.ui.notify("No instances configured. Run /gh-login to set up.", "info");

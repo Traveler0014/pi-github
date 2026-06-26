@@ -29,10 +29,17 @@ export interface GitPluginConfig {
 
 const GLOBAL_CONFIG_FILE = path.join(os.homedir(), ".pi", "agent", "pi-github-config.json");
 
-/** Resolve config path: project-local first, then global fallback */
+/** Get project-local config path */
+export function getProjectConfigPath(): string {
+  return path.join(process.cwd(), ".pi", "pi-github-config.json");
+}
+
+/**
+ * Resolve config path:
+ * - If explicit path set via setConfigPath(), use that
+ * - Otherwise use global config (loadConfig merges project + global)
+ */
 export function getConfigPath(): string {
-  const local = path.join(process.cwd(), ".pi-github-config.json");
-  if (fs.existsSync(local)) return local;
   return GLOBAL_CONFIG_FILE;
 }
 
@@ -68,20 +75,43 @@ export function setConfigPath(p: string): void {
 }
 
 export function loadConfig(): GitPluginConfig {
-  const file = _configPath ?? getConfigPath();
-  try {
-    if (fs.existsSync(file)) {
-      const raw = fs.readFileSync(file, "utf-8");
-      return JSON.parse(raw);
-    }
-  } catch {
-    // Corrupted config — return empty
+  if (_configPath) {
+    try {
+      if (fs.existsSync(_configPath)) return JSON.parse(fs.readFileSync(_configPath, "utf-8"));
+    } catch { /* corrupted */ }
+    return { platforms: {}, default: "" };
   }
-  return { platforms: {}, default: "" };
+
+  // Merge: global ← project (project overrides global for same ID)
+  const merged: GitPluginConfig = { platforms: {}, default: "" };
+
+  // Load global config first
+  if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    try {
+      const global = JSON.parse(fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8"));
+      merged.platforms = { ...global.platforms };
+      merged.default = global.default || "";
+    } catch { /* corrupted */ }
+  }
+
+  // Overlay project config
+  const projectPath = getProjectConfigPath();
+  if (fs.existsSync(projectPath)) {
+    try {
+      const project = JSON.parse(fs.readFileSync(projectPath, "utf-8"));
+      if (project.platforms) {
+        merged.platforms = { ...merged.platforms, ...project.platforms };
+      }
+      if (project.default) merged.default = project.default;
+    } catch { /* corrupted */ }
+  }
+
+  return merged;
 }
 
-export function saveConfig(config: GitPluginConfig): void {
-  const file = _configPath ?? getConfigPath();
+/** Save config to a specific scope */
+export function saveConfig(config: GitPluginConfig, project?: boolean): void {
+  const file = _configPath ?? (project ? getProjectConfigPath() : GLOBAL_CONFIG_FILE);
   ensureConfigDirFor(file);
   fs.writeFileSync(file, JSON.stringify(config, null, 2), "utf-8");
 }
