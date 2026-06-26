@@ -273,19 +273,34 @@ Tool 和 Command 应分别列出并标注命名风格：
 
 ### Step 2: 冒烟测试
 
-确认插件不影响 pi 正常启动，并运行单元测试：
+使用 `pi -ne`（non-interactive 模式）加载插件并发送一条简单 prompt 验证：
 
 ```bash
-pi -e ./<plugin-path>/index.ts        # 冒烟：启动不崩溃
+pi -ne -e . -p '<prompt>'
+```
+
+- `-e .`：从当前仓库根目录加载，pi 自动从根 `package.json` 的 `pi.extensions` 中加载所有插件
+- `<prompt>`：一句简单任务，让 agent 触发插件注册的 Tool 即可（不需复杂交互）
+
+示例：
+
+```bash
+pi -ne -e . -p 'list available tools'
+```
+
+有单元测试的插件同时运行：
+
+```bash
 npm test                              # 单元测试全部通过
 GH_TEST_TOKEN=<token> npm test        # 含集成测试（可选）
 ```
 
 检查项：
 - [ ] pi 正常启动，无崩溃
-- [ ] `npm test` 全部通过
-- [ ] 注册的 Tool / Command 可正常调用
-- [ ] Provider 类插件：`/model` 可见新模型，`/login` 流程正常
+- [ ] agent 正常响应用户，无异常日志
+- [ ] 注册的 Tool 被正确识别（可从 model 的 tool list 确认）
+- [ ] `npm test` 全部通过（如适用）
+- [ ] Provider 类插件：模型列表中可见新模型，`/login` 流程正常
 
 ### Step 3: 补全文档
 
@@ -324,13 +339,12 @@ pi install <installUrl>  # 确认可安装
 ## Tag 命名规范
 
 ```
-<plugin-directory-name>@<semver>
+<extension-path>@<semver>
 ```
 
-使用插件目录的最后一个路径组件作为名称：
+`<extension-path>` 即根 `package.json` 中 `pi.extensions` 里声明的相对路径，与 `release.sh` 的第一个参数一致：
 
-- `my-plugin@1.0.0`
-- `category/other-plugin@0.2.0`
+- `tools/pi-github@1.0.0`
 
 ---
 
