@@ -18,7 +18,30 @@ export class GitClient {
 
   // ── low-level request ──────────────────────────────────
 
-  private async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  /**
+   * Make an API request.
+   * - request(path)           → GET
+   * - request(method, path)   → specified method
+   * - request(method, path, body) → specified method with JSON body
+   */
+  private async request<T = unknown>(methodOrPath: string, pathOrBody?: unknown, bodyOrNothing?: unknown): Promise<T> {
+    let method: string;
+    let path: string;
+    let body: unknown;
+
+    if (pathOrBody === undefined && bodyOrNothing === undefined) {
+      // GET shorthand: request(path)
+      method = "GET";
+      path = methodOrPath;
+    } else if (bodyOrNothing === undefined) {
+      // POST/PATCH/PUT/GET with explicit method
+      method = methodOrPath;
+      path = pathOrBody as string;
+    } else {
+      method = methodOrPath;
+      path = pathOrBody as string;
+      body = bodyOrNothing;
+    }
     const url = buildApiUrl(this.platform.type, this.platform.baseUrl, path);
     const headers = buildHeaders(this.platform);
     const init: RequestInit = { method, headers };
