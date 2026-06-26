@@ -8,7 +8,9 @@
  * ## What this extension provides
  *
  * - Tools: gh_issue_create, gh_issue_list, gh_issue_get, gh_issue_comment, gh_issue_update,
- *          gh_pr_create, gh_pr_list, gh_pr_get, gh_repo_get,
+ *          gh_pr_create, gh_pr_list, gh_pr_get, gh_pr_update, gh_merge_pr,
+ *          gh_repo_get, gh_list_contents, gh_get_file, gh_list_branches,
+ *          gh_list_comments, gh_list_labels, gh_list_milestones, gh_search_repos,
  *          gh_instance_list, gh_instance_check
  * - Commands: /gh-login, /gh-default, /gh-forget, /gh-status
  *
@@ -22,6 +24,8 @@ import { Text } from "@earendil-works/pi-tui";
 import {
   apiRequest,
   buildListQuery,
+  buildSearchQuery,
+  decodeContent,
   detectPlatform,
   formatApiError,
   getConfig,
@@ -1010,6 +1014,449 @@ export default function (pi: ExtensionAPI) {
       }
       lines.push("/gh-default to switch, /gh-forget to remove.");
       ctx.ui.notify(lines.join("\n"), "info");
+    },
+  });
+
+  // ── gh_issue_update ──────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_issue_update",
+    label: "Update Issue",
+    description:
+      "Update an existing issue — change title, body, state (open/closed), labels, assignees, or milestone. " +
+      "Only the fields you provide will be updated; omit fields to leave them unchanged.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        number: numberParam,
+        title: { type: "string", description: "New title (omit to keep current)" },
+        body: { type: "string", description: "New body/description in Markdown (omit to keep current)" },
+        state: { type: "string", enum: ["open", "closed"], description: "Set state" },
+        labels: { type: "array", items: { type: "string" }, description: "Replacement labels. Omit to keep unchanged." },
+        assignees: { type: "array", items: { type: "string" }, description: "Replacement assignees. Omit to keep unchanged." },
+        milestone: { description: "Milestone number, or null to clear. Omit to keep unchanged." },
+      },
+      required: ["repo", "number"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`, { error: "invalid repo format", instance: instanceName });
+
+      const body: Record<string, unknown> = {};
+      if (params.title !== undefined) body.title = params.title;
+      if (params.body !== undefined) body.body = params.body;
+      if (params.state !== undefined) body.state = params.state;
+      if (params.labels !== undefined) body.labels = params.labels;
+      if (params.assignees !== undefined) body.assignees = params.assignees;
+      if (params.milestone !== undefined) body.milestone = params.milestone;
+
+      if (Object.keys(body).length === 0) return textResult("Error: at least one field to update must be provided.", { error: "no fields", instance: instanceName });
+
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}`;
+      const { status, data } = await apiRequest(platform, "PATCH", apiPath, body);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const d = data as Record<string, unknown>;
+      const text = [`[${instanceName}] Issue updated: #${d.number} — ${d.title}`, `State: ${d.state}`, `URL: ${d.html_url}`].join("\n");
+      return textResult(text, { number: d.number, title: d.title, state: d.state, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`issue update[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      if (args.state) text += " " + theme.fg(args.state === "closed" ? "error" : "success", args.state);
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const content = result.content[0];
+      if (content?.type === "text") return new Text(theme.fg("success", content.text.split("\n")[0]), 0, 0);
+      return new Text(theme.fg("success", "Updated"), 0, 0);
+    },
+  });
+
+  // ── gh_pr_update ─────────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_pr_update",
+    label: "Update PR",
+    description: "Update an existing pull request — change title, body, or state.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        number: numberParam,
+        title: { type: "string", description: "New title (omit to keep current)" },
+        body: { type: "string", description: "New body/description in Markdown (omit to keep current)" },
+        state: { type: "string", enum: ["open", "closed"], description: "Set state" },
+      },
+      required: ["repo", "number"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`, { error: "invalid repo format", instance: instanceName });
+
+      const body: Record<string, unknown> = {};
+      if (params.title !== undefined) body.title = params.title;
+      if (params.body !== undefined) body.body = params.body;
+      if (params.state !== undefined) body.state = params.state;
+      if (Object.keys(body).length === 0) return textResult("Error: at least one field to update must be provided.", { error: "no fields", instance: instanceName });
+
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/pulls/${params.number}`;
+      const { status, data } = await apiRequest(platform, "PATCH", apiPath, body);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const d = data as Record<string, unknown>;
+      const text = [`[${instanceName}] PR #${d.number} updated: ${d.title}`, `State: ${d.state}`, `URL: ${d.html_url}`].join("\n");
+      return textResult(text, { number: d.number, title: d.title, state: d.state, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`PR update[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      if (args.state) text += " " + theme.fg(args.state === "closed" ? "error" : "success", args.state);
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const content = result.content[0];
+      if (content?.type === "text") return new Text(theme.fg("success", content.text.split("\n")[0]), 0, 0);
+      return new Text(theme.fg("success", "Updated"), 0, 0);
+    },
+  });
+
+  // ── gh_merge_pr ──────────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_merge_pr",
+    label: "Merge PR",
+    description: "Merge a pull request (merge, rebase, or squash). Optionally delete the source branch.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        number: numberParam,
+        method: { type: "string", enum: ["merge", "rebase", "squash"], description: "Merge method. Default: merge" },
+        deleteBranch: { type: "boolean", description: "Delete source branch after merge. Default: false" },
+      },
+      required: ["repo", "number"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format. Expected "owner/repo", got "${params.repo}"`, { error: "invalid repo format", instance: instanceName });
+
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/pulls/${params.number}/merge`;
+      const body: Record<string, unknown> = {};
+      if (params.method) {
+        // GitHub uses merge_method, Gitea/Forgejo use Do
+        if (platform.type === "github") body.merge_method = params.method;
+        else body.Do = params.method;
+      }
+      if (params.deleteBranch && platform.type !== "github") body.delete_branch_after_merge = params.deleteBranch;
+
+      const { status, data } = await apiRequest(platform, "PUT", apiPath, body);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const d = data as Record<string, unknown>;
+      const merged = d.merged === true;
+      return textResult(`[${instanceName}] ${merged ? "Merged" : "Failed to merge"} PR #${params.number}`, { merged, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`merge PR[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      if (args.method) text += " " + theme.fg("muted", `(${args.method})`);
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const d = result.details as Record<string, unknown> | undefined;
+      return new Text(theme.fg(d?.merged ? "success" : "error", d?.merged ? "Merged" : "Failed"), 0, 0);
+    },
+  });
+
+  // ── gh_list_comments ─────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_list_comments",
+    label: "List Comments",
+    description: "List comments on an issue or pull request.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        number: numberParam,
+        perPage: { type: "number", description: "Results per page (default: 30, max: 100)" },
+      },
+      required: ["repo", "number"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format", instance: instanceName });
+
+      const pp = paginationParam(platform);
+      const qs = new URLSearchParams();
+      qs.set(pp, String(Math.min(params.perPage ?? 30, 100)));
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/issues/${params.number}/comments?${qs}`;
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const comments = data as Array<Record<string, unknown>>;
+      if (comments.length === 0) return textResult(`[${instanceName}] No comments.`, { count: 0, instance: instanceName });
+
+      const text = comments.map((c) => {
+        const author = c.user && typeof c.user === "object" ? (c.user as { login: string }).login : "unknown";
+        return `@${author} at ${c.created_at}:\n${c.body}\n---`;
+      }).join("\n");
+      return textResult(text, { count: comments.length, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`comments[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} comment(s)`), 0, 0);
+    },
+  });
+
+  // ── gh_list_branches ─────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_list_branches",
+    label: "List Branches",
+    description: "List branches in a repository with commit info and protection status.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        perPage: { type: "number", description: "Results per page (default: 30, max: 100)" },
+      },
+      required: ["repo"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format", instance: instanceName });
+
+      const pp = paginationParam(platform);
+      const qs = new URLSearchParams();
+      qs.set(pp, String(Math.min(params.perPage ?? 30, 100)));
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/branches?${qs}`;
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const branches = data as Array<Record<string, unknown>>;
+      if (branches.length === 0) return textResult(`[${instanceName}] No branches found.`, { count: 0 });
+
+      const text = branches.map((b) => {
+        const sha = b.commit && typeof b.commit === "object" ? (b.commit as { sha: string }).sha.slice(0, 8) : "?";
+        return `- ${b.name} (${sha})${b.protected ? " [protected]" : ""}`;
+      }).join("\n");
+      return textResult(text, { count: branches.length, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`branches[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} branch(es)`), 0, 0);
+    },
+  });
+
+  // ── gh_list_contents ─────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_list_contents",
+    label: "List Contents",
+    description: "List files and directories in a repository path (like ls).",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        path: { type: "string", description: "Directory path. Empty for root." },
+        ref: { type: "string", description: "Branch or commit SHA. Default: default branch." },
+      },
+      required: ["repo"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format", instance: instanceName });
+
+      let apiPath = `/repos/${parsed.owner}/${parsed.repoName}/contents`;
+      if (params.path) apiPath += `/${params.path.replace(/^\//, "")}`;
+      if (params.ref) apiPath += `?ref=${encodeURIComponent(params.ref)}`;
+
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const entries = Array.isArray(data) ? data : [data];
+      if (entries.length === 0) return textResult(`[${instanceName}] Directory is empty.`, { count: 0 });
+
+      const text = entries.map((e: Record<string, unknown>) => {
+        const icon = e.type === "dir" ? "📁" : e.type === "symlink" ? "🔗" : "📄";
+        return `${icon} ${e.name} (${e.type}) ${e.size} bytes`;
+      }).join("\n");
+      return textResult(text, { count: entries.length, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`ls[${inst}]`)) + " " + theme.fg("accent", args.repo);
+      if (args.path) text += " " + theme.fg("muted", args.path);
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} entr${count === 1 ? "y" : "ies"}`), 0, 0);
+    },
+  });
+
+  // ── gh_get_file ──────────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_get_file",
+    label: "Get File",
+    description: "Read a file from a repository. Returns decoded file content.",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        repo: repoParam,
+        path: { type: "string", description: "File path in the repository." },
+        ref: { type: "string", description: "Branch or commit SHA. Default: default branch." },
+      },
+      required: ["repo", "path"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format", instance: instanceName });
+
+      let apiPath = `/repos/${parsed.owner}/${parsed.repoName}/contents/${params.path.replace(/^\//, "")}`;
+      if (params.ref) apiPath += `?ref=${encodeURIComponent(params.ref)}`;
+
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status, instance: instanceName });
+
+      const f = data as Record<string, unknown>;
+      const content = decodeContent(f.content as string | undefined, f.encoding as string | undefined);
+      return { content: [{ type: "text", text: content }], details: { sha: f.sha, size: f.size, path: f.path, instance: instanceName } };
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      let text = theme.fg("toolTitle", theme.bold(`cat[${inst}]`)) + " " + theme.fg("accent", args.repo);
+      if (args.path) text += " " + theme.fg("muted", args.path);
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const size = (result.details as Record<string, unknown>)?.size;
+      return new Text(theme.fg("muted", `${size ?? "?"} bytes`), 0, 0);
+    },
+  });
+
+  // ── gh_list_labels ───────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_list_labels",
+    label: "List Labels",
+    description: "List all labels in a repository (useful to get label names for create/update).",
+    parameters: {
+      type: "object",
+      properties: { instance: instanceParam, repo: repoParam },
+      required: ["repo"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/labels`;
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status });
+
+      const labels = data as Array<Record<string, unknown>>;
+      if (labels.length === 0) return textResult(`No labels.`, { count: 0, instance: instanceName });
+      const text = labels.map((l) => `- ${l.name}${l.color ? ` (#${l.color})` : ""}`).join("\n");
+      return textResult(text, { count: labels.length, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`labels[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} label(s)`), 0, 0);
+    },
+  });
+
+  // ── gh_list_milestones ───────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_list_milestones",
+    label: "List Milestones",
+    description: "List milestones in a repository.",
+    parameters: {
+      type: "object",
+      properties: { instance: instanceParam, repo: repoParam },
+      required: ["repo"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+
+      const apiPath = `/repos/${parsed.owner}/${parsed.repoName}/milestones`;
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status });
+
+      const milestones = data as Array<Record<string, unknown>>;
+      if (milestones.length === 0) return textResult(`No milestones.`, { count: 0, instance: instanceName });
+      const text = milestones.map((m) => `- #${m.number} "${m.title}" [${m.state}]`).join("\n");
+      return textResult(text, { count: milestones.length, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`milestones[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} milestone(s)`), 0, 0);
+    },
+  });
+
+  // ── gh_search_repos ──────────────────────────────────────────────────
+  pi.registerTool({
+    name: "gh_search_repos",
+    label: "Search Repos",
+    description: "Search repositories on the platform by keyword (Gitea/Forgejo only; GitHub uses a different search API).",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        query: { type: "string", description: "Search keyword." },
+        limit: { type: "number", description: "Max results. Default: 10." },
+      },
+      required: ["query"],
+    },
+    async execute(_toolCallId, params) {
+      const { config: platform, name: instanceName } = resolveConfig(params.instance);
+      const qs = buildSearchQuery({ q: params.query, limit: params.limit ?? 10 });
+      const apiPath = `/repos/search?${qs}`;
+      const { status, data } = await apiRequest(platform, "GET", apiPath);
+      if (status < 200 || status >= 300) return textResult(formatApiError(status, data, apiPath, platform.type), { error: "api error", status });
+
+      const d = data as Record<string, unknown>;
+      const repos = (d.data || d) as Array<Record<string, unknown>>;
+      if (!Array.isArray(repos) || repos.length === 0) return textResult(`No repositories found.`, { count: 0, instance: instanceName });
+
+      const text = repos.map((r) => `- ${r.full_name} ⭐${r.stargazers_count ?? r.stars_count ?? 0} ${r.description ?? ""}`).join("\n");
+      return textResult(text, { count: repos.length, instance: instanceName });
+    },
+    renderCall(args, theme, _context) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`search repos[${inst}]`)) + " " + theme.fg("accent", args.query || ""), 0, 0);
+    },
+    renderResult(result, _options, theme, _context) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} repositor${count === 1 ? "y" : "ies"}`), 0, 0);
     },
   });
 }

@@ -247,3 +247,19 @@ export function normalizeRepoFields(
   }
   return result;
 }
+
+/** Decode base64-encoded file content (from GitHub/Gitea contents API) */
+export function decodeContent(content: string | undefined, encoding: string | undefined): string {
+  if (encoding === "base64" && content) {
+    return Buffer.from(content, "base64").toString("utf-8");
+  }
+  return content ?? "(no content)";
+}
+
+/** Build search query params for repo search */
+export function buildSearchQuery(params: { q: string; limit?: number; page?: number }): string {
+  const q = new URLSearchParams({ q: params.q });
+  if (params.limit) q.set("limit", String(params.limit));
+  if (params.page) q.set("page", String(params.page));
+  return q.toString();
+}
