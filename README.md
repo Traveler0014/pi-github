@@ -9,7 +9,7 @@ Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi
 
 | Extension | Providers | Commands | Tools |
 |-----------|-----------|----------|-------|
-| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_repo_get`, `gh_instance_list`, `gh_instance_check` |
+| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_pr_update`, `gh_merge_pr`, `gh_repo_get`, `gh_list_branches`, `gh_list_contents`, `gh_get_file`, `gh_instance_list`, `gh_instance_check` |
 
 ### [tools/pi-github](./tools/pi-github)
 
@@ -24,17 +24,22 @@ Multi-platform Git forge automation — interact with GitHub, Gitea, and Forgejo
 
 **Tools:**
 
-- `gh_issue_create` — Create a new issue on a Git repository. Use the optional 'instance' parameter to target a specific platform (e.g. 'github', 'gitea'). Configure instances via /gh-login.
-- `gh_issue_list` — List issues from a Git repository with optional filters (state, labels). Use the optional 'instance' parameter to target a specific platform.
-- `gh_issue_get` — Get detailed information about a specific issue. Use the optional 'instance' parameter to target a specific platform.
-- `gh_issue_comment` — Add a comment to an existing issue. Use the optional 'instance' parameter to target a specific platform.
-- `gh_issue_update`
-- `gh_pr_create` — Create a new pull request. Use the optional 'instance' parameter to target a specific platform.
-- `gh_pr_list` — List pull requests from a Git repository with optional filters. Use the optional 'instance' parameter to target a specific platform.
-- `gh_pr_get` — Get detailed information about a specific pull request. Use the optional 'instance' parameter to target a specific platform.
-- `gh_repo_get` — Get information about a Git repository. Use the optional 'instance' parameter to target a specific platform.
-- `gh_instance_list` — List all configured platform instances with their types, URLs, and which is the default. Use this when you need to know what platforms are available.
-- `gh_instance_check` — Check connectivity and token validity for a configured platform instance. Use the optional 'instance' parameter; defaults to the current default instance.
+- `gh_issue_create` — Create a new issue on a Git repository.
+- `gh_issue_list` — List issues from a Git repository with optional filters.
+- `gh_issue_get` — Get detailed information about a specific issue.
+- `gh_issue_comment` — Add a comment to an existing issue or pull request.
+- `gh_issue_update` — Update an existing issue — change title, body, state, labels, assignees, or milestone. Only provided fields are updated.
+- `gh_pr_create` — Create a new pull request.
+- `gh_pr_list` — List pull requests from a Git repository.
+- `gh_pr_get` — Get detailed information about a specific pull request.
+- `gh_pr_update` — Update an existing pull request — change title, body, or state.
+- `gh_merge_pr` — Merge a pull request (merge, rebase, or squash). Optionally delete the source branch.
+- `gh_repo_get` — Get information about a Git repository.
+- `gh_list_branches` — List branches in a repository with commit info and protection status.
+- `gh_list_contents` — List files and directories in a repository path (like ls).
+- `gh_get_file` — Read a file from a repository. Returns decoded file content.
+- `gh_instance_list` — List all configured platform instances with their types, URLs, and which is the default.
+- `gh_instance_check` — Check connectivity and token validity for a configured platform instance.
 
 ---
 
