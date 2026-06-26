@@ -90,7 +90,10 @@ export class GitClient {
 
   // ── Health ─────────────────────────────────────────────
 
-  async getVersion() { return this.request("/version"); }
+  /** Probe connectivity. GitHub has no /version endpoint — use /rate_limit instead. */
+  async getVersion() {
+    return this.request(this.type === "github" ? "/rate_limit" : "/version");
+  }
 }
 
 // ── tiny helpers ──────────────────────────────────────────

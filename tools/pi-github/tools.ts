@@ -687,7 +687,8 @@ export function registerTools(pi: ExtensionAPI) {
       try {
         const client = new GitClient(platform);
         const d = await client.getVersion() as Record<string, unknown>;
-        return textResult(`[${inst}] ${platform.type}\nURL: ${platform.baseUrl}\nToken: ${maskToken(platform.token)}\nStatus: OK (version: ${d.version || "unknown"})`, { ok: true, instance: inst, version: d.version });
+        const statusInfo = d.version ? `version: ${d.version}` : "connected";
+        return textResult(`[${inst}] ${platform.type}\nURL: ${platform.baseUrl}\nToken: ${maskToken(platform.token)}\nStatus: OK (${statusInfo})`, { ok: true, instance: inst });
       } catch (e: any) {
         const lines = [`[${inst}] ${platform.type}`, `URL: ${platform.baseUrl}`, `Token: ${maskToken(platform.token)}`, `Status: ${(e as Error).message}`];
         return textResult(lines.join("\n"), { ok: false, instance: inst, error: (e as Error).message });

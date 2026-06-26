@@ -313,19 +313,50 @@ function extractFlag(callExpr: ts.CallExpression): FlagInfo | undefined {
   };
 }
 
+// ── Import Resolution ────────────────────────────────────────────────────────
+
+/** Resolve a TypeScript import specifier to an actual file path. */
+function resolveImport(baseDir: string, specifier: string): string | null {
+  // Only follow relative imports (./xxx, ../xxx)
+  if (!specifier.startsWith(".")) return null;
+
+  const candidates = [
+    path.join(baseDir, specifier + ".ts"),
+    path.join(baseDir, specifier + ".tsx"),
+    path.join(baseDir, specifier, "index.ts"),
+    path.join(baseDir, specifier, "index.tsx"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
+/** Collect local import paths from a source file. */
+function collectLocalImports(sourceFile: ts.SourceFile, baseDir: string): string[] {
+  const imports: string[] = [];
+
+  function visit(node: ts.Node) {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      const resolved = resolveImport(baseDir, node.moduleSpecifier.text);
+      if (resolved) imports.push(resolved);
+    }
+    // Also handle dynamic imports and re-exports
+    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      const resolved = resolveImport(baseDir, node.moduleSpecifier.text);
+      if (resolved) imports.push(resolved);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return imports;
+}
+
 // ── Main Parser ──────────────────────────────────────────────────────────────
 
 function parseExtension(extDir: string): ExtensionInfo | undefined {
   const indexPath = path.join(extDir, "index.ts");
   if (!fs.existsSync(indexPath)) return undefined;
-
-  const source = fs.readFileSync(indexPath, "utf-8");
-  const sourceFile = ts.createSourceFile(
-    "index.ts",
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-  );
 
   const dirName = path.basename(extDir);
   const info: ExtensionInfo = {
@@ -338,47 +369,76 @@ function parseExtension(extDir: string): ExtensionInfo | undefined {
     flags: [],
   };
 
-  // Pre-extract the MODELS array (used by providers)
-  const modelsArray = extractModelsArray(sourceFile);
+  // Recursively scan index.ts and all its local imports
+  const scanned = new Set<string>();
+  const queue: string[] = [indexPath];
 
-  // Walk the AST looking for pi.registerXxx() calls
-  function visit(node: ts.Node) {
-    if (ts.isCallExpression(node)) {
-      const method = getRegisterMethod(node);
-      if (method) {
-        switch (method) {
-          case "registerProvider": {
-            const provider = extractProvider(node, modelsArray);
-            if (provider) info.providers.push(provider);
-            break;
-          }
-          case "registerCommand": {
-            const cmd = extractCommand(node);
-            if (cmd) info.commands.push(cmd);
-            break;
-          }
-          case "registerTool": {
-            const tool = extractTool(node);
-            if (tool) info.tools.push(tool);
-            break;
-          }
-          case "registerShortcut": {
-            const shortcut = extractShortcut(node);
-            if (shortcut) info.shortcuts.push(shortcut);
-            break;
-          }
-          case "registerFlag": {
-            const flag = extractFlag(node);
-            if (flag) info.flags.push(flag);
-            break;
+  // MODELS array is scoped per file (used by providers in the same file)
+  while (queue.length > 0) {
+    const filePath = queue.shift()!;
+    const normalized = path.resolve(filePath);
+    if (scanned.has(normalized)) continue;
+    scanned.add(normalized);
+
+    if (!fs.existsSync(normalized)) continue;
+    const source = fs.readFileSync(normalized, "utf-8");
+    const sourceFile = ts.createSourceFile(
+      path.basename(normalized),
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+    );
+
+    const modelsArray = extractModelsArray(sourceFile);
+
+    // Walk the AST looking for pi.registerXxx() calls
+    function visit(node: ts.Node) {
+      if (ts.isCallExpression(node)) {
+        const method = getRegisterMethod(node);
+        if (method) {
+          switch (method) {
+            case "registerProvider": {
+              const provider = extractProvider(node, modelsArray);
+              if (provider) info.providers.push(provider);
+              break;
+            }
+            case "registerCommand": {
+              const cmd = extractCommand(node);
+              if (cmd) info.commands.push(cmd);
+              break;
+            }
+            case "registerTool": {
+              const tool = extractTool(node);
+              if (tool) info.tools.push(tool);
+              break;
+            }
+            case "registerShortcut": {
+              const shortcut = extractShortcut(node);
+              if (shortcut) info.shortcuts.push(shortcut);
+              break;
+            }
+            case "registerFlag": {
+              const flag = extractFlag(node);
+              if (flag) info.flags.push(flag);
+              break;
+            }
           }
         }
       }
+      ts.forEachChild(node, visit);
     }
-    ts.forEachChild(node, visit);
+
+    visit(sourceFile);
+
+    // Enqueue local imports for recursive scanning
+    const baseDir = path.dirname(normalized);
+    const localImports = collectLocalImports(sourceFile, baseDir);
+    for (const imp of localImports) {
+      const resolved = path.resolve(imp);
+      if (!scanned.has(resolved)) queue.push(resolved);
+    }
   }
 
-  visit(sourceFile);
   return info;
 }
 
