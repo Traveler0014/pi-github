@@ -174,6 +174,24 @@ describe("buildApiUrl", () => {
       "https://github.mycompany.com/api/v3/repos/owner/repo",
     );
   });
+
+  it("GitHub health check uses /rate_limit", () => {
+    expect(buildApiUrl("github", "https://api.github.com", "/rate_limit")).toBe(
+      "https://api.github.com/rate_limit",
+    );
+  });
+
+  it("Gitea health check uses /version (auto-prefixed with /api/v1)", () => {
+    expect(buildApiUrl("gitea", "https://gitea.example.com", "/version")).toBe(
+      "https://gitea.example.com/api/v1/version",
+    );
+  });
+
+  it("Forgejo health check uses /version (auto-prefixed with /api/v1)", () => {
+    expect(buildApiUrl("forgejo", "https://forgejo.example.com", "/version")).toBe(
+      "https://forgejo.example.com/api/v1/version",
+    );
+  });
 });
 
 // =============================================================================
