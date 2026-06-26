@@ -101,7 +101,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`issue create[${inst}]`)) + " " + theme.fg("accent", args.repo);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] issue create`)) + " " + theme.fg("accent", args.repo);
       text += " " + theme.fg("muted", `"${args.title}"`);
       return new Text(text, 0, 0);
     },
@@ -148,7 +148,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`issues list[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] issues list`)) + " " + theme.fg("accent", args.repo), 0, 0);
     },
     renderResult(result, _o, theme, _c) {
       const count = (result.details as Record<string, unknown>)?.count ?? 0;
@@ -178,7 +178,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`issue[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] issue`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
     },
     renderResult(result, _o, theme, _c) {
       const t = result.content[0]?.type === "text" ? result.content[0].text.split("\n")[0] : "Done";
@@ -206,7 +206,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`comment[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] comment`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
     },
     renderResult(_r, _o, theme, _c) { return new Text(theme.fg("success", "Comment added"), 0, 0); },
   });
@@ -251,7 +251,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`issue update[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] issue update`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
       if (args.state) text += " " + theme.fg(args.state === "closed" ? "error" : "success", args.state);
       return new Text(text, 0, 0);
     },
@@ -295,7 +295,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`PR create[${inst}]`)) + " " + theme.fg("accent", args.repo);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] PR create`)) + " " + theme.fg("accent", args.repo);
       text += " " + theme.fg("muted", `${args.head}→${args.base}`);
       text += " " + theme.fg("dim", `"${args.title}"`);
       if (args.draft) text += theme.fg("warning", " draft");
@@ -339,7 +339,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`PRs list[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] PRs list`)) + " " + theme.fg("accent", args.repo), 0, 0);
     },
     renderResult(result, _o, theme, _c) {
       const count = (result.details as Record<string, unknown>)?.count ?? 0;
@@ -368,7 +368,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`PR[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] PR`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`), 0, 0);
     },
     renderResult(result, _o, theme, _c) {
       const t = result.content[0]?.type === "text" ? result.content[0].text.split("\n")[0] : "Done";
@@ -410,7 +410,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`PR update[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] PR update`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
       if (args.state) text += " " + theme.fg(args.state === "closed" ? "error" : "success", args.state);
       return new Text(text, 0, 0);
     },
@@ -448,7 +448,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`merge PR[${inst}]`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] merge PR`)) + " " + theme.fg("accent", `${args.repo}#${args.number}`);
       if (args.method) text += " " + theme.fg("muted", `(${args.method})`);
       return new Text(text, 0, 0);
     },
@@ -481,7 +481,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`repo[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] repo`)) + " " + theme.fg("accent", args.repo), 0, 0);
     },
     renderResult(result, _o, theme, _c) {
       const t = result.content[0]?.type === "text" ? result.content[0].text.split("\n")[0] : "Done";
@@ -514,7 +514,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`branches[${inst}]`)) + " " + theme.fg("accent", args.repo), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] branches`)) + " " + theme.fg("accent", args.repo), 0, 0);
     },
     renderResult(result, _o, theme, _c) {
       const count = (result.details as Record<string, unknown>)?.count ?? 0;
@@ -545,7 +545,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`ls[${inst}]`)) + " " + theme.fg("accent", args.repo);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] ls`)) + " " + theme.fg("accent", args.repo);
       if (args.path) text += " " + theme.fg("muted", args.path);
       return new Text(text, 0, 0);
     },
@@ -576,7 +576,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme, _c) {
       const inst = resolveInstanceName(args.instance);
-      let text = theme.fg("toolTitle", theme.bold(`cat[${inst}]`)) + " " + theme.fg("accent", args.repo);
+      let text = theme.fg("toolTitle", theme.bold(`[${inst}] cat`)) + " " + theme.fg("accent", args.repo);
       if (args.path) text += " " + theme.fg("muted", args.path);
       return new Text(text, 0, 0);
     },
@@ -626,7 +626,7 @@ export function registerTools(pi: ExtensionAPI) {
       renderCall(args: any, theme: any, _c: any) {
         const inst = resolveInstanceName(args.instance);
         const display = args.repo ? ` ${args.repo}` : (args.query ? ` ${args.query}` : "");
-        return new Text(theme.fg("toolTitle", theme.bold(`${label.toLowerCase()}[${inst}]`)) + theme.fg("accent", display), 0, 0);
+        return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] ${label.toLowerCase()}`)) + theme.fg("accent", display), 0, 0);
       },
       renderResult(result: any, _o: any, theme: any, _c: any) {
         const count = (result.details as Record<string, unknown>)?.count ?? 0;
@@ -696,7 +696,7 @@ export function registerTools(pi: ExtensionAPI) {
     },
     renderCall(args, theme) {
       const inst = resolveInstanceName(args.instance);
-      return new Text(theme.fg("toolTitle", theme.bold(`check [${inst}]`)), 0, 0);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] check`)), 0, 0);
     },
     renderResult(result, _o, theme) {
       const d = result.details as Record<string, unknown> | undefined;
