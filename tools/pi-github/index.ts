@@ -80,8 +80,15 @@ export default function (pi: ExtensionAPI) {
   };
 
   // ═══════════════════════════════════════════════════════════
-  //  Commands
+  //  Commands — Interactive wizard + quick mode
   // ═══════════════════════════════════════════════════════════
+  //
+  //  UX principles:
+  //    1. Visible defaults — prompt text shows what Enter gives you
+  //    2. Example placeholders — required fields show format examples
+  //    3. Purpose hints — explain what each field controls
+  //    4. Structured summary — show all saved fields to verify
+  //    5. Detail + confirm — remove shows full instance info before deleting
 
   pi.registerCommand("gh-login", {
     description: "Add or update a platform instance (GitHub, Gitea, or Forgejo)",
@@ -92,7 +99,8 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify(`Existing instances: ${listInstances(existing)}`, "info");
       }
 
-      const typeChoice = await ctx.ui.select("Select platform type:", [
+      // 1. Platform type
+      const typeChoice = await ctx.ui.select("Select platform type", [
         "GitHub (github.com or GitHub Enterprise)",
         "Gitea",
         "Forgejo",
@@ -101,44 +109,89 @@ export default function (pi: ExtensionAPI) {
       const platformType: PlatformType = typeChoice.toLowerCase().startsWith("github")
         ? "github" : typeChoice === "Gitea" ? "gitea" : "forgejo";
 
+      // 2. Base URL — show default + examples
       const defaultUrls: Record<string, string> = { github: GITHUB_DEFAULT_BASE, gitea: GITEA_DEFAULT_BASE, forgejo: "" };
       const defaultUrl = defaultUrls[platformType] || "";
-      const hint = platformType === "github" ? "https://api.github.com" : "https://your-domain.com (e.g. https://repo.trav.one)";
-      const baseUrlInput = await ctx.ui.input("API base URL (Enter=default):", defaultUrl || hint);
+      const urlPrompt = [
+        `API base URL${defaultUrl ? ` [default: ${defaultUrl}]` : " (required)"}`,
+        platformType !== "github" ? "  e.g. https://gitea.mycompany.com or https://forgejo.example.com" : "  e.g. https://api.github.com or https://github.mycompany.com/api/v3",
+        platformType !== "github" ? "  Auto-appends /api/v1 for Gitea/Forgejo" : "",
+        "  Supports https:// and http://",
+      ].filter(Boolean).join("\n");
+      const baseUrlInput = await ctx.ui.input(urlPrompt, defaultUrl || "https://your-domain.com");
       if (baseUrlInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
       let baseUrl = baseUrlInput.trim() || defaultUrl;
-      if (!baseUrl) { ctx.ui.notify("Base URL required.", "error"); return; }
+      if (!baseUrl) { ctx.ui.notify("Base URL is required.", "error"); return; }
       baseUrl = baseUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
 
-      const tokenInput = await ctx.ui.input("Access token:", "ghp_...");
+      // 3. Access token — show format example
+      const tokenPrompt = [
+        "Access token (required)",
+        platformType === "github" ? "  e.g. ghp_xxxxxxxxxxxxxxxxxxxx or github_pat_..." : "  e.g. 83f9a1e2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8",
+        "  Personal access token with repo/issue scope",
+      ].join("\n");
+      const tokenInput = await ctx.ui.input(tokenPrompt, platformType === "github" ? "ghp_..." : "");
       if (tokenInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
       const token = tokenInput.trim();
-      if (!token) { ctx.ui.notify("Token required.", "error"); return; }
+      if (!token) { ctx.ui.notify("Token is required.", "error"); return; }
 
+      // 4. Instance ID — show default
       const defaultName = existingNames.length > 0 ? `${platformType}-${existingNames.length + 1}` : platformType;
-      const nameInput = await ctx.ui.input("Instance ID (Enter=default):", defaultName);
+      const namePrompt = [
+        "Instance ID",
+        `  Default: ${defaultName}`,
+        "  Used in tool calls: gh_* tools require this value",
+      ].join("\n");
+      const nameInput = await ctx.ui.input(namePrompt, defaultName);
       if (nameInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
       const configName = nameInput.trim() || defaultName;
 
       const detectedType = platformType === "github" ? detectPlatform(baseUrl) : platformType;
+
+      // 5. Set as default?
       const setDefault = existingNames.length === 0 ? true
         : await ctx.ui.confirm("Set as default?", `Make "${configName}" the default? (Current: ${existing.default || "none"})`);
 
-      const scopeChoice = await ctx.ui.select("Save to project config or global?", [
+      // 6. Scope — show file paths
+      const scopeLines = [
+        "Save to:",
+        `  Global:  ~/.pi/agent/pi-github-config.json  (all workspaces)`,
+        `  Project: ${ctx.cwd}/.pi/pi-github-config.json (this workspace only)`,
+      ].join("\n");
+      ctx.ui.notify(scopeLines, "info");
+      const scopeChoice = await ctx.ui.select("Save instance to project config or global?", [
         "Global (~/.pi/agent/) — available in all workspaces",
         "Project (.pi/) — this workspace only",
       ]);
       if (scopeChoice === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
       const isProject = scopeChoice.startsWith("Project");
 
+      // Check overwrite
+      const exists = existing.platforms[configName] !== undefined;
+      if (exists) {
+        const ok = await ctx.ui.confirm("Overwrite?", `Instance "${configName}" already exists. Overwrite?`);
+        if (!ok) { ctx.ui.notify("Cancelled.", "info"); return; }
+      }
+
+      // Save
       const config = loadConfig();
       config.platforms[configName] = { type: detectedType, baseUrl, token };
       if (setDefault || existingNames.length === 0) config.default = configName;
       else if (!config.default) config.default = configName;
       saveConfig(config, isProject);
 
-      const scopeLabel = isProject ? "project (.pi/)" : "global (~/.pi/agent/)";
-      ctx.ui.notify(`Instance "${configName}" (${detectedType}) saved to ${scopeLabel}.${config.default === configName ? " Set as default." : ""}`, "info");
+      // Structured summary
+      const action = exists ? "Updated" : "Added";
+      const summary = [
+        `${action} platform instance:`,
+        `  ID:       ${configName}`,
+        `  Type:     ${detectedType}`,
+        `  URL:      ${baseUrl}`,
+        `  Token:    ${maskToken(token)}`,
+        config.default === configName ? `  Default:  yes` : "",
+        `  Config:   ${isProject ? ctx.cwd + "/.pi/pi-github-config.json" : "~/.pi/agent/pi-github-config.json"}`,
+      ].filter(Boolean).join("\n");
+      ctx.ui.notify(summary, "info");
     },
   });
 
@@ -164,12 +217,27 @@ export default function (pi: ExtensionAPI) {
       const config = loadConfig();
       const names = Object.keys(config.platforms);
       if (names.length === 0) { ctx.ui.notify("No instances to remove.", "info"); return; }
-      const choices = names.map((n) => `${n} (${config.platforms[n].type} — ${config.platforms[n].baseUrl})`);
+
+      const choices = names.map((n) => {
+        const p = config.platforms[n];
+        const active = n === config.default ? " ★ DEFAULT" : "";
+        return `${n}${active} — ${p.type} | ${p.baseUrl}`;
+      });
       const target = await ctx.ui.select("Select instance to remove:", choices);
       if (!target) { ctx.ui.notify("Cancelled.", "info"); return; }
       const targetName = target.split(" ")[0];
-      const ok = await ctx.ui.confirm("Confirm", `Remove "${targetName}"?`);
+      const p = config.platforms[targetName];
+
+      // Show detail and confirm
+      const detail = [
+        `  ID:    ${targetName}${targetName === config.default ? " (default)" : ""}`,
+        `  Type:  ${p.type}`,
+        `  URL:   ${p.baseUrl}`,
+        `  Token: ${maskToken(p.token)}`,
+      ].join("\n");
+      const ok = await ctx.ui.confirm("Confirm removal", detail);
       if (!ok) { ctx.ui.notify("Cancelled.", "info"); return; }
+
       delete config.platforms[targetName];
       if (config.default === targetName) {
         const remaining = Object.keys(config.platforms);
