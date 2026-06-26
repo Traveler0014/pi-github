@@ -47,23 +47,6 @@ export const GITHUB_DEFAULT_BASE = "https://api.github.com";
 export const GITEA_DEFAULT_BASE = "https://gitea.com";
 
 // =============================================================================
-// Platform Detection
-// =============================================================================
-
-/** Detect platform from base URL */
-export function detectPlatform(baseUrl: string): PlatformType {
-  const url = baseUrl.toLowerCase();
-  if (
-    url.includes("api.github.com") ||
-    url.includes("github.com/api/v3") ||
-    url === "https://api.github.com"
-  ) {
-    return "github";
-  }
-  return "gitea";
-}
-
-// =============================================================================
 // Config Persistence
 // =============================================================================
 

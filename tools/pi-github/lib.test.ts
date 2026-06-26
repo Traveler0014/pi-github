@@ -9,7 +9,6 @@ import {
   buildApiUrl,
   buildHeaders,
   buildListQuery,
-  detectPlatform,
   formatApiError,
   getConfig,
   getConfigPath,
@@ -91,32 +90,6 @@ describe("parseRepo", () => {
 
   it("rejects URLs", () => {
     expect(parseRepo("https://github.com/owner/repo")).toBeNull();
-  });
-});
-
-// =============================================================================
-// detectPlatform
-// =============================================================================
-
-describe("detectPlatform", () => {
-  it("detects github from api.github.com", () => {
-    expect(detectPlatform("https://api.github.com")).toBe("github");
-    expect(detectPlatform("https://api.github.com/")).toBe("github");
-    expect(detectPlatform("HTTP://API.GITHUB.COM")).toBe("github");
-  });
-
-  it("detects github from github.com/api/v3", () => {
-    expect(detectPlatform("https://github.com/api/v3")).toBe("github");
-  });
-
-  it("defaults to gitea for unknown domains", () => {
-    expect(detectPlatform("https://api.my-company.com")).toBe("gitea");
-  });
-
-  it("defaults to gitea for /api/v1 URLs", () => {
-    expect(detectPlatform("https://gitea.com/api/v1")).toBe("gitea");
-    expect(detectPlatform("https://forgejo.example.com/api/v1")).toBe("gitea");
-    expect(detectPlatform("https://try.gitea.io/api/v1")).toBe("gitea");
   });
 });
 

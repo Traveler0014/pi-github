@@ -33,7 +33,6 @@ import * as fs from "node:fs";
 import { Text } from "@earendil-works/pi-tui";
 import { registerTools } from "./tools";
 import {
-  detectPlatform,
   formatApiError,
   getConfig,
   getConfigPath,
@@ -146,8 +145,6 @@ export default function (pi: ExtensionAPI) {
       if (nameInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
       const configName = nameInput.trim() || defaultName;
 
-      const detectedType = platformType === "github" ? detectPlatform(baseUrl) : platformType;
-
       // 5. Set as default?
       const setDefault = existingNames.length === 0 ? true
         : await ctx.ui.confirm("Set as default?", `Make "${configName}" the default? (Current: ${existing.default || "none"})`);
@@ -175,7 +172,7 @@ export default function (pi: ExtensionAPI) {
 
       // Save
       const config = loadConfig();
-      config.platforms[configName] = { type: detectedType, baseUrl, token };
+      config.platforms[configName] = { type: platformType, baseUrl, token };
       if (setDefault || existingNames.length === 0) config.default = configName;
       else if (!config.default) config.default = configName;
       saveConfig(config, isProject);
@@ -185,7 +182,7 @@ export default function (pi: ExtensionAPI) {
       const summary = [
         `${action} platform instance:`,
         `  ID:       ${configName}`,
-        `  Type:     ${detectedType}`,
+        `  Type:     ${platformType}`,
         `  URL:      ${baseUrl}`,
         `  Token:    ${maskToken(token)}`,
         config.default === configName ? `  Default:  yes` : "",
