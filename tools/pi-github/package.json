@@ -1,6 +1,6 @@
 {
   "name": "pi-github",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Multi-platform Git forge automation (GitHub, Gitea, Forgejo) with configurable base URL and auth",
   "keywords": [
     "pi-package",
