@@ -6,9 +6,11 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  branchRef,
   buildApiUrl,
   buildHeaders,
   buildListQuery,
+  commitSha,
   formatApiError,
   getConfig,
   getConfigPath,
@@ -359,6 +361,44 @@ describe("normalizeRepoFields", () => {
     const input = { full_name: "a/b" };
     const result = normalizeRepoFields("forgejo", input);
     expect(result.stargazers_count).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// branchRef / commitSha (cross-platform field extraction)
+// =============================================================================
+
+describe("branchRef", () => {
+  it("extracts ref from a GitHub/Gitea/Forgejo head object", () => {
+    expect(branchRef({ label: "user:feat", ref: "feat", sha: "abc" })).toBe("feat");
+  });
+  it("falls back to label and tolerates plain strings", () => {
+    expect(branchRef({ label: "user:feat" })).toBe("user:feat");
+    expect(branchRef("main")).toBe("main");
+  });
+  it("returns ? for missing/unknown values", () => {
+    expect(branchRef(undefined)).toBe("?");
+    expect(branchRef(null)).toBe("?");
+    expect(branchRef({})).toBe("?");
+  });
+});
+
+describe("commitSha", () => {
+  it("reads GitHub's commit.sha", () => {
+    expect(commitSha({ commit: { sha: "1234567890abcdef" } })).toBe("12345678");
+  });
+  it("reads Forgejo/Gitea's commit.id", () => {
+    expect(commitSha({ commit: { id: "abcdef1234567890" } })).toBe("abcdef12");
+  });
+  it("prefers sha when both are present", () => {
+    expect(commitSha({ commit: { sha: "aaaabbbbcccc", id: "ddddeeeeffff" } })).toBe("aaaabbbb");
+  });
+  it("returns ? when commit is missing", () => {
+    expect(commitSha({})).toBe("?");
+    expect(commitSha(undefined)).toBe("?");
+  });
+  it("honours the short-length argument", () => {
+    expect(commitSha({ commit: { id: "abcdef1234" } }, 4)).toBe("abcd");
   });
 });
 

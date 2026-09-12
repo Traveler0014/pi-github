@@ -261,6 +261,36 @@ export function normalizeRepoFields(
   return result;
 }
 
+/**
+ * Extract a branch name from a PR `head`/`base` field.
+ *
+ * GitHub / Gitea / Forgejo all return these as objects (e.g. `{ ref, label, sha }`),
+ * so a naive string interpolation renders `[object Object]`. Plain strings are
+ * tolerated as well.
+ */
+export function branchRef(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const v = value as { ref?: unknown; label?: unknown };
+    if (typeof v.ref === "string" && v.ref) return v.ref;
+    if (typeof v.label === "string" && v.label) return v.label;
+  }
+  return "?";
+}
+
+/**
+ * Extract a (short) commit SHA from a branch object.
+ * GitHub exposes `commit.sha`; Forgejo/Gitea expose `commit.id`.
+ */
+export function commitSha(branch: unknown, short = 8): string {
+  const c = (branch as { commit?: { sha?: unknown; id?: unknown } } | null)?.commit;
+  const sha =
+    (typeof c?.sha === "string" && c.sha) ||
+    (typeof c?.id === "string" && c.id) ||
+    "";
+  return sha ? sha.slice(0, short) : "?";
+}
+
 /** Decode base64-encoded file content (from GitHub/Gitea contents API) */
 export function decodeContent(content: string | undefined, encoding: string | undefined): string {
   if (encoding === "base64" && content) {

@@ -11,8 +11,10 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { GitClient } from "./client";
 import {
+  branchRef,
   buildListQuery,
   buildSearchQuery,
+  commitSha,
   decodeContent,
   formatApiError,
   getConfig,
@@ -290,7 +292,7 @@ export function registerTools(pi: ExtensionAPI) {
         if (params.draft && platform.type === "github") body.draft = true;
         const d = await client.createPR(parsed.owner, parsed.repoName, body) as Record<string, unknown>;
         const draftLabel = d.draft ? " [DRAFT]" : "";
-        return textResult(`[${inst}] PR created: #${d.number} — ${d.title}${draftLabel}\nURL: ${d.html_url}\nBranch: ${d.head} → ${d.base}`, { number: d.number, title: d.title, url: d.html_url, instance: inst });
+        return textResult(`[${inst}] PR created: #${d.number} — ${d.title}${draftLabel}\nURL: ${d.html_url}\nBranch: ${branchRef(d.head)} → ${branchRef(d.base)}`, { number: d.number, title: d.title, url: d.html_url, instance: inst });
       } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
     },
     renderCall(args, theme, _c) {
@@ -333,7 +335,7 @@ export function registerTools(pi: ExtensionAPI) {
         const qs = buildListQuery(platform, { state: params.state, page: params.page, perPage: params.perPage });
         const prs = await client.listPRs(parsed.owner, parsed.repoName, qs) as Array<Record<string, unknown>>;
         if (!prs.length) return textResult(`[${inst}] No pull requests found.`, { count: 0, instance: inst });
-        const text = prs.map((pr) => `#${pr.number} ${pr.title} (${pr.state})${pr.draft ? " [DRAFT]" : ""}\n  ${pr.head} → ${pr.base}\n  ${pr.html_url}`).join("\n\n");
+        const text = prs.map((pr) => `#${pr.number} ${pr.title} (${pr.state})${pr.draft ? " [DRAFT]" : ""}\n  ${branchRef(pr.head)} → ${branchRef(pr.base)}\n  ${pr.html_url}`).join("\n\n");
         return textResult(text, { count: prs.length, instance: inst });
       } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
     },
@@ -363,7 +365,7 @@ export function registerTools(pi: ExtensionAPI) {
         const client = new GitClient(platform);
         const pr = await client.getPR(parsed.owner, parsed.repoName, params.number) as Record<string, unknown>;
         const mergeable = pr.mergeable !== undefined ? `\nMergeable: ${pr.mergeable}` : "";
-        return textResult([`#${pr.number} ${pr.title}${pr.draft ? " [DRAFT]" : ""}`, `State: ${pr.state}`, `Branch: ${pr.head} → ${pr.base}`, `URL: ${pr.html_url}${mergeable}`, "", pr.body || "(no description)"].join("\n"), { number: pr.number, title: pr.title, state: pr.state, instance: inst });
+        return textResult([`#${pr.number} ${pr.title}${pr.draft ? " [DRAFT]" : ""}`, `State: ${pr.state}`, `Branch: ${branchRef(pr.head)} → ${branchRef(pr.base)}`, `URL: ${pr.html_url}${mergeable}`, "", pr.body || "(no description)"].join("\n"), { number: pr.number, title: pr.title, state: pr.state, instance: inst });
       } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
     },
     renderCall(args, theme, _c) {
@@ -506,7 +508,7 @@ export function registerTools(pi: ExtensionAPI) {
         const branches = await client.listBranches(parsed.owner, parsed.repoName, params.perPage ?? 30) as Array<Record<string, unknown>>;
         if (!branches.length) return textResult(`[${inst}] No branches.`, { count: 0, instance: inst });
         const text = branches.map((b) => {
-          const sha = b.commit && typeof b.commit === "object" ? (b.commit as { sha: string }).sha.slice(0, 8) : "?";
+          const sha = commitSha(b);
           return `- ${b.name} (${sha})${b.protected ? " [protected]" : ""}`;
         }).join("\n");
         return textResult(text, { count: branches.length, instance: inst });
