@@ -326,6 +326,8 @@ bash scripts/release.sh <extension-path> <bump>
 4. `git tag <name>@<version>`
 5. `git push && git push --tags`
 
+其中 `<name>` 为 `<extension-path>` 的最后一段目录名（`basename`），详见下文 Tag 命名规范。
+
 ### Step 5: 验证发布
 
 ```bash
@@ -339,12 +341,16 @@ pi install <installUrl>  # 确认可安装
 ## Tag 命名规范
 
 ```
-<extension-path>@<semver>
+<name>@<semver>
 ```
 
-`<extension-path>` 即根 `package.json` 中 `pi.extensions` 里声明的相对路径，与 `release.sh` 的第一个参数一致：
+`<name>` 为 `<extension-path>` 的最后一段目录名（`basename`），而非完整相对路径。`<extension-path>` 即 `release.sh` 的第一个参数，与根 `package.json` 中 `pi.extensions` 声明的相对路径一致：
 
-- `tools/pi-github@1.0.0`
+| `pi.extensions` 中的路径 | Tag 前缀（`<name>`） | 示例 tag |
+|--------------------------|----------------------|----------|
+| `tools/pi-github` | `pi-github` | `pi-github@1.0.0` |
+| `my-plugin` | `my-plugin` | `my-plugin@1.0.0` |
+| `category/plugin-b` | `plugin-b` | `plugin-b@1.0.0` |
 
 ---
 
