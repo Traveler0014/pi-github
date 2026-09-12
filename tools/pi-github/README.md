@@ -30,6 +30,14 @@ Follow the prompts to configure:
 
 Run `/gh-login` multiple times to add more instances.
 
+### Edit an instance
+
+```
+/gh-edit
+```
+
+Select an existing instance and update its platform type, base URL, token, or ID. Every prompt shows the current value as a placeholder — press Enter to keep it. The token is only echoed masked, and an empty token keeps the existing secret. Changes are saved back to the scope the instance lives in (global or project).
+
 ### Switch default instance
 
 ```
@@ -317,6 +325,10 @@ Check connectivity and token validity for a configured instance.
 ### `/gh-login`
 
 Add or update a platform instance. Interactive wizard: platform type → base URL → token → instance ID → set as default.
+
+### `/gh-edit`
+
+Edit an existing instance. Select from the configured list, then update platform type, base URL, token, or ID. Each prompt shows the current value as a placeholder (press Enter to keep it); the token is displayed masked and an empty input preserves the current secret.
 
 ### `/gh-default`
 

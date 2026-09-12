@@ -9,7 +9,7 @@ Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi
 
 | Extension | Providers | Commands | Tools |
 |-----------|-----------|----------|-------|
-| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_pr_update`, `gh_pr_merge`, `gh_repo_get`, `gh_branch_list`, `gh_content_list`, `gh_file_get`, `gh_comment_list`, `gh_label_list`, `gh_milestone_list`, `gh_repo_search`, `gh_instance_list`, `gh_instance_check` |
+| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-edit`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_pr_update`, `gh_pr_merge`, `gh_repo_get`, `gh_branch_list`, `gh_content_list`, `gh_file_get`, `gh_comment_list`, `gh_label_list`, `gh_milestone_list`, `gh_repo_search`, `gh_instance_list`, `gh_instance_check` |
 
 ### [tools/pi-github](./tools/pi-github)
 
@@ -18,6 +18,7 @@ Multi-platform Git forge automation — interact with GitHub, Gitea, and Forgejo
 **Commands:**
 
 - `/gh-login` — Add or update a platform instance (GitHub, Gitea, or Forgejo)
+- `/gh-edit` — Edit an existing platform instance (current values shown as placeholders)
 - `/gh-default` — Set the default platform instance for subsequent tool calls
 - `/gh-forget` — Remove a configured platform instance
 - `/gh-status` — Show all configured platform instances

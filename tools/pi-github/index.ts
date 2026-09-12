@@ -14,7 +14,7 @@
  *               gh_repo_get, gh_instance_list, gh_instance_check
  *   → Registered in tools.ts via GitClient class
  *
- * - Commands: /gh-login, /gh-default, /gh-forget, /gh-status
+ * - Commands: /gh-login, /gh-edit, /gh-default, /gh-forget, /gh-status
  *
  * ## Architecture
  *
@@ -41,6 +41,20 @@ import {
   saveConfig,
   type PlatformType,
 } from "./lib";
+
+/** Check whether an instance is defined in the project-local config file */
+function projectHasInstance(name: string): boolean {
+  const projectPath = getProjectConfigPath();
+  try {
+    if (!fs.existsSync(projectPath)) return false;
+    const project = JSON.parse(fs.readFileSync(projectPath, "utf-8")) as {
+      platforms?: Record<string, unknown>;
+    };
+    return Boolean(project?.platforms?.[name]);
+  } catch {
+    return false;
+  }
+}
 
 export default function (pi: ExtensionAPI) {
   // Register all 20 tools
@@ -154,6 +168,96 @@ export default function (pi: ExtensionAPI) {
         `  URL:      ${baseUrl}`,
         `  Token:    ${maskToken(token)}`,
         config.default === configName ? `  Default:  yes` : "",
+        `  Config:   ${isProject ? ctx.cwd + "/.pi/pi-github-config.json" : "~/.pi/agent/pi-github-config.json"}`,
+      ].filter(Boolean).join("\n");
+      ctx.ui.notify(summary, "info");
+    },
+  });
+
+  pi.registerCommand("gh-edit", {
+    description: "Edit an existing platform instance (current values shown as placeholders)",
+    async handler(_args, ctx) {
+      const config = loadConfig();
+      const names = Object.keys(config.platforms);
+      if (names.length === 0) { ctx.ui.notify("No instances configured. Run /gh-login first.", "info"); return; }
+
+      // 1. Select the instance to edit
+      const choices = names.map((n) => {
+        const p = config.platforms[n];
+        const active = n === config.default ? " ★ DEFAULT" : "";
+        return `${n}${active} — ${p.type} | ${p.baseUrl}`;
+      });
+      const target = await ctx.ui.select("Select instance to edit:", choices);
+      if (!target) { ctx.ui.notify("Cancelled.", "info"); return; }
+      const targetName = target.split(" ")[0];
+      const current = config.platforms[targetName];
+
+      // Show the current values up front
+      ctx.ui.notify([
+        `Editing "${targetName}":`,
+        `  Type:  ${current.type}`,
+        `  URL:   ${current.baseUrl}`,
+        `  Token: ${maskToken(current.token)}`,
+      ].join("\n"), "info");
+
+      // 2. Platform type (current value annotated)
+      const typeChoice = await ctx.ui.select(`Select platform type (current: ${current.type})`, [
+        "GitHub (github.com or GitHub Enterprise)",
+        "Gitea",
+        "Forgejo",
+      ]);
+      if (!typeChoice) { ctx.ui.notify("Cancelled.", "info"); return; }
+      const platformType: PlatformType = typeChoice.toLowerCase().startsWith("github")
+        ? "github" : typeChoice === "Gitea" ? "gitea" : "forgejo";
+
+      // 3. Base URL — current value shown as default placeholder
+      const urlPrompt = [
+        "API base URL (Enter to keep current)",
+        `  Current: ${current.baseUrl}`,
+        platformType !== "github" ? "  Auto-appends /api/v1 for Gitea/Forgejo" : "",
+      ].filter(Boolean).join("\n");
+      const urlInput = await ctx.ui.input(urlPrompt, current.baseUrl);
+      if (urlInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
+      const baseUrl = (urlInput.trim() || current.baseUrl).replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
+      if (!baseUrl) { ctx.ui.notify("Base URL is required.", "error"); return; }
+
+      // 4. Token — empty input keeps the current secret (never echo it)
+      const tokenPrompt = [
+        "Access token (Enter to keep current)",
+        `  Current: ${maskToken(current.token)}`,
+      ].join("\n");
+      const tokenInput = await ctx.ui.input(tokenPrompt, "");
+      if (tokenInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
+      const token = tokenInput.trim() || current.token;
+
+      // 5. Instance ID — current value shown as default placeholder (rename supported)
+      const namePrompt = [
+        "Instance ID (Enter to keep current)",
+        `  Current: ${targetName}`,
+      ].join("\n");
+      const nameInput = await ctx.ui.input(namePrompt, targetName);
+      if (nameInput === undefined) { ctx.ui.notify("Cancelled.", "info"); return; }
+      const newName = nameInput.trim() || targetName;
+      if (newName !== targetName && config.platforms[newName]) {
+        const ok = await ctx.ui.confirm("Overwrite?", `Instance "${newName}" already exists. Overwrite it?`);
+        if (!ok) { ctx.ui.notify("Cancelled.", "info"); return; }
+      }
+
+      // 6. Persist to the scope where the instance currently lives
+      const isProject = projectHasInstance(targetName);
+      if (newName !== targetName) delete config.platforms[targetName];
+      config.platforms[newName] = { type: platformType, baseUrl, token };
+      if (config.default === targetName) config.default = newName;
+      saveConfig(config, isProject);
+
+      // Structured summary
+      const summary = [
+        "Updated platform instance:",
+        `  ID:       ${newName}${newName !== targetName ? ` (was ${targetName})` : ""}`,
+        `  Type:     ${platformType}`,
+        `  URL:      ${baseUrl}`,
+        `  Token:    ${maskToken(token)}`,
+        config.default === newName ? `  Default:  yes` : "",
         `  Config:   ${isProject ? ctx.cwd + "/.pi/pi-github-config.json" : "~/.pi/agent/pi-github-config.json"}`,
       ].filter(Boolean).join("\n");
       ctx.ui.notify(summary, "info");
