@@ -9,7 +9,7 @@ Multi-platform Git forge automation (GitHub / Gitea / Forgejo) for pi
 
 | Extension | Providers | Commands | Tools |
 |-----------|-----------|----------|-------|
-| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_pr_update`, `gh_merge_pr`, `gh_repo_get`, `gh_list_branches`, `gh_list_contents`, `gh_get_file`, `gh_instance_list`, `gh_instance_check` |
+| [tools/pi-github](./tools/pi-github) | — | `/gh-login`, `/gh-default`, `/gh-forget`, `/gh-status` | `gh_issue_create`, `gh_issue_list`, `gh_issue_get`, `gh_issue_comment`, `gh_issue_update`, `gh_pr_create`, `gh_pr_list`, `gh_pr_get`, `gh_pr_update`, `gh_pr_merge`, `gh_repo_get`, `gh_branch_list`, `gh_content_list`, `gh_file_get`, `gh_comment_list`, `gh_label_list`, `gh_milestone_list`, `gh_repo_search`, `gh_instance_list`, `gh_instance_check` |
 
 ### [tools/pi-github](./tools/pi-github)
 
@@ -33,11 +33,15 @@ Multi-platform Git forge automation — interact with GitHub, Gitea, and Forgejo
 - `gh_pr_list` — List pull requests from a Git repository.
 - `gh_pr_get` — Get detailed information about a specific pull request.
 - `gh_pr_update` — Update an existing pull request — change title, body, or state.
-- `gh_merge_pr` — Merge a pull request (merge, rebase, or squash). Optionally delete the source branch.
+- `gh_pr_merge` — Merge a pull request (merge, rebase, or squash). Optionally delete the source branch (Gitea/Forgejo only).
 - `gh_repo_get` — Get information about a Git repository.
-- `gh_list_branches` — List branches in a repository with commit info and protection status.
-- `gh_list_contents` — List files and directories in a repository path (like ls).
-- `gh_get_file` — Read a file from a repository. Returns decoded file content.
+- `gh_branch_list` — List branches in a repository with commit info and protection status.
+- `gh_content_list` — List files and directories in a repository path (like ls).
+- `gh_file_get` — Read a file from a repository. Returns decoded file content.
+- `gh_comment_list` — List comments on an issue or pull request.
+- `gh_label_list` — List all labels in a repository.
+- `gh_milestone_list` — List milestones in a repository.
+- `gh_repo_search` — Search repositories by keyword (Gitea/Forgejo only).
 - `gh_instance_list` — List all configured platform instances with their types, URLs, and which is the default.
 - `gh_instance_check` — Check connectivity and token validity for a configured platform instance.
 

@@ -1,10 +1,12 @@
 /**
- * pi-github — Tool registration (21 tools).
+ * pi-github — Tool registration (20 tools).
  *
  * All tools follow the same pattern:
  *   1. resolveConfig → parseRepo → GitClient → textResult
  *   2. renderCall + renderResult for compact TUI display
  *   3. Cross-platform: GitHub / Gitea / Forgejo
+ *
+ * Naming convention: gh_<resource>_<verb> (e.g. gh_issue_create, gh_pr_merge).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -13,16 +15,13 @@ import { GitClient } from "./client";
 import {
   branchRef,
   buildListQuery,
-  buildSearchQuery,
   commitSha,
   decodeContent,
-  formatApiError,
   getConfig,
   listInstances,
   loadConfig,
   maskToken,
   normalizeRepoFields,
-  paginationParam,
   parseRepo,
   type PlatformConfig,
 } from "./lib";
@@ -31,6 +30,11 @@ import {
 
 function textResult(text: string, details?: Record<string, unknown>) {
   return { content: [{ type: "text" as const, text }], details: details ?? {} };
+}
+
+/** Shared "invalid repo format" error result */
+function invalidRepo() {
+  return textResult("Error: invalid repo format. Expected owner/repo.", { error: "invalid repo format" });
 }
 
 function resolveConfig(instance?: string): { config: PlatformConfig; name: string } {
@@ -70,7 +74,6 @@ const numberParam = { type: "number" as const, description: "Issue or PR number"
 // ── Tool Registration ──────────────────────────────────────
 
 export function registerTools(pi: ExtensionAPI) {
-  const tools: Array<{ name: string; fn: (pi: ExtensionAPI) => void }> = [];
 
   // ══════════════════════════════════════════════════════════
   //  gh_issue_create
@@ -91,7 +94,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       const client = new GitClient(platform);
       const body: Record<string, unknown> = { title: params.title };
       if (params.body) body.body = params.body;
@@ -134,7 +137,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       const client = new GitClient(platform);
       try {
         const qs = buildListQuery(platform, { state: params.state, labels: params.labels, page: params.page, perPage: params.perPage });
@@ -169,7 +172,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const i = await client.getIssue(parsed.owner, parsed.repoName, params.number) as Record<string, unknown>;
@@ -199,7 +202,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const c = await client.createComment(parsed.owner, parsed.repoName, params.number, params.body) as Record<string, unknown>;
@@ -229,14 +232,14 @@ export function registerTools(pi: ExtensionAPI) {
         state: { type: "string", enum: ["open", "closed"], description: "Set state" },
         labels: { type: "array", items: { type: "string" }, description: "Replacement labels" },
         assignees: { type: "array", items: { type: "string" }, description: "Replacement assignees" },
-        milestone: { description: "Milestone number, or null to clear" },
+        milestone: { anyOf: [{ type: "number" }, { type: "null" }], description: "Milestone number, or null to clear" },
       },
       required: ["repo", "number"],
     },
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       const update: Record<string, unknown> = {};
       if (params.title !== undefined) update.title = params.title;
       if (params.body !== undefined) update.body = params.body;
@@ -284,7 +287,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const body: Record<string, unknown> = { title: params.title, head: params.head, base: params.base };
@@ -329,7 +332,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const qs = buildListQuery(platform, { state: params.state, page: params.page, perPage: params.perPage });
@@ -360,7 +363,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const pr = await client.getPR(parsed.owner, parsed.repoName, params.number) as Record<string, unknown>;
@@ -398,7 +401,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       const update: Record<string, unknown> = {};
       if (params.title !== undefined) update.title = params.title;
       if (params.body !== undefined) update.body = params.body;
@@ -423,25 +426,25 @@ export function registerTools(pi: ExtensionAPI) {
   });
 
   // ══════════════════════════════════════════════════════════
-  //  gh_merge_pr
+  //  gh_pr_merge
   // ══════════════════════════════════════════════════════════
   pi.registerTool({
-    name: "gh_merge_pr",
+    name: "gh_pr_merge",
     label: "Merge PR",
-    description: "Merge a pull request (merge, rebase, or squash). Optionally delete the source branch.",
+    description: "Merge a pull request (merge, rebase, or squash). Optionally delete the source branch (Gitea/Forgejo only).",
     parameters: {
       type: "object",
       properties: {
         instance: instanceParam, repo: repoParam, number: numberParam,
         method: { type: "string", enum: ["merge", "rebase", "squash"], description: "Merge method. Default: merge" },
-        deleteBranch: { type: "boolean", description: "Delete source branch after merge. Default: false" },
+        deleteBranch: { type: "boolean", description: "Delete source branch after merge (Gitea/Forgejo only; ignored on GitHub). Default: false" },
       },
       required: ["repo", "number"],
     },
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const result = await client.mergePR(parsed.owner, parsed.repoName, params.number, params.method, params.deleteBranch);
@@ -471,7 +474,7 @@ export function registerTools(pi: ExtensionAPI) {
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const r = normalizeRepoFields(platform.type, await client.getRepo(parsed.owner, parsed.repoName) as Record<string, unknown>) as Record<string, unknown>;
@@ -492,17 +495,17 @@ export function registerTools(pi: ExtensionAPI) {
   });
 
   // ══════════════════════════════════════════════════════════
-  //  gh_list_branches
+  //  gh_branch_list
   // ══════════════════════════════════════════════════════════
   pi.registerTool({
-    name: "gh_list_branches",
+    name: "gh_branch_list",
     label: "List Branches",
     description: "List branches in a repository with commit info and protection status.",
     parameters: { type: "object", properties: { instance: instanceParam, repo: repoParam, perPage: { type: "number", description: "Results per page (default: 30, max: 100)" } }, required: ["repo"] },
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const branches = await client.listBranches(parsed.owner, parsed.repoName, params.perPage ?? 30) as Array<Record<string, unknown>>;
@@ -525,17 +528,17 @@ export function registerTools(pi: ExtensionAPI) {
   });
 
   // ══════════════════════════════════════════════════════════
-  //  gh_list_contents
+  //  gh_content_list
   // ══════════════════════════════════════════════════════════
   pi.registerTool({
-    name: "gh_list_contents",
+    name: "gh_content_list",
     label: "List Contents",
     description: "List files and directories in a repository path (like ls).",
     parameters: { type: "object", properties: { instance: instanceParam, repo: repoParam, path: { type: "string", description: "Directory path. Empty for root." }, ref: { type: "string", description: "Branch or commit SHA" } }, required: ["repo"] },
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const data = await client.listContents(parsed.owner, parsed.repoName, params.path, params.ref);
@@ -558,17 +561,17 @@ export function registerTools(pi: ExtensionAPI) {
   });
 
   // ══════════════════════════════════════════════════════════
-  //  gh_get_file
+  //  gh_file_get
   // ══════════════════════════════════════════════════════════
   pi.registerTool({
-    name: "gh_get_file",
+    name: "gh_file_get",
     label: "Get File",
     description: "Read a file from a repository. Returns decoded file content.",
     parameters: { type: "object", properties: { instance: instanceParam, repo: repoParam, path: { type: "string", description: "File path in the repository." }, ref: { type: "string", description: "Branch or commit SHA" } }, required: ["repo", "path"] },
     async execute(_id, params) {
       const { config: platform, name: inst } = resolveConfig(params.instance);
       const parsed = parseRepo(params.repo);
-      if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
+      if (!parsed) return invalidRepo();
       try {
         const client = new GitClient(platform);
         const f = await client.getFile(parsed.owner, parsed.repoName, params.path, params.ref) as Record<string, unknown>;
@@ -589,68 +592,134 @@ export function registerTools(pi: ExtensionAPI) {
   });
 
   // ══════════════════════════════════════════════════════════
-  //  gh_list_comments, gh_list_labels, gh_list_milestones, gh_search_repos
+  //  gh_comment_list
   // ══════════════════════════════════════════════════════════
+  pi.registerTool({
+    name: "gh_comment_list",
+    label: "List Comments",
+    description: "List comments on an issue or pull request.",
+    parameters: { type: "object", properties: { instance: instanceParam, repo: repoParam, number: numberParam }, required: ["repo", "number"] },
+    async execute(_id, params) {
+      const { config: platform, name: inst } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return invalidRepo();
+      try {
+        const client = new GitClient(platform);
+        const data = await client.listComments(parsed.owner, parsed.repoName, params.number) as Array<Record<string, unknown>>;
+        const arr = Array.isArray(data) ? data : [];
+        if (!arr.length) return textResult(`No comments.`, { count: 0, instance: inst });
+        const text = arr.map((c) => `@${(c.user as { login?: string } | undefined)?.login ?? "?"} at ${c.created_at}:\n${c.body}\n---`).join("\n");
+        return textResult(text, { count: arr.length, instance: inst });
+      } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
+    },
+    renderCall(args, theme, _c) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] comments`)) + theme.fg("accent", ` ${args.repo}#${args.number}`), 0, 0);
+    },
+    renderResult(result, _o, theme, _c) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} comment(s)`), 0, 0);
+    },
+  });
 
-  const registerMeta = (name: string, label: string, desc: string, fetchFn: (client: GitClient, owner: string, repo: string, params: any) => Promise<unknown>, renderFn?: (data: any[]) => string) => {
-    const props: any = { instance: instanceParam, repo: repoParam };
-    const required: string[] = ["repo"];
-    if (name === "gh_list_comments") { props.number = numberParam; required.push("number"); }
-    if (name === "gh_search_repos") { delete props.repo; required.length = 0; required.push("query"); props.query = { type: "string", description: "Search keyword." }; props.limit = { type: "number", description: "Max results. Default: 10." }; }
+  // ══════════════════════════════════════════════════════════
+  //  gh_label_list
+  // ══════════════════════════════════════════════════════════
+  pi.registerTool({
+    name: "gh_label_list",
+    label: "List Labels",
+    description: "List all labels in a repository.",
+    parameters: { type: "object", properties: { instance: instanceParam, repo: repoParam }, required: ["repo"] },
+    async execute(_id, params) {
+      const { config: platform, name: inst } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return invalidRepo();
+      try {
+        const client = new GitClient(platform);
+        const data = await client.listLabels(parsed.owner, parsed.repoName) as Array<Record<string, unknown>>;
+        const arr = Array.isArray(data) ? data : [];
+        if (!arr.length) return textResult(`No labels.`, { count: 0, instance: inst });
+        const text = arr.map((l) => `- ${l.name}${l.color ? ` (#${l.color})` : ""}`).join("\n");
+        return textResult(text, { count: arr.length, instance: inst });
+      } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
+    },
+    renderCall(args, theme, _c) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] labels`)) + theme.fg("accent", ` ${args.repo}`), 0, 0);
+    },
+    renderResult(result, _o, theme, _c) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} label(s)`), 0, 0);
+    },
+  });
 
-    pi.registerTool({
-      name, label, description: desc,
-      parameters: { type: "object", properties: props, required },
-      async execute(_id: string, params: any) {
-        const { config: platform, name: inst } = resolveConfig(params.instance);
-        if (name === "gh_list_comments" || name === "gh_list_labels" || name === "gh_list_milestones") {
-          const parsed = parseRepo(params.repo);
-          if (!parsed) return textResult(`Error: invalid repo format.`, { error: "invalid repo format" });
-          try {
-            const client = new GitClient(platform);
-            const data = await fetchFn(client, parsed.owner, parsed.repoName, params) as Array<Record<string, unknown>>;
-            const arr = Array.isArray(data) ? data : [];
-            if (!arr.length) return textResult(`No ${label.toLowerCase()}.`, { count: 0, instance: inst });
-            const text = renderFn ? renderFn(arr) : arr.map((r: any) => `- ${r.full_name} ${r.description ?? ""}`).join("\n");
-            return textResult(text, { count: arr.length, instance: inst });
-          } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
-        }
-        // gh_search_repos
-        try {
-          const client = new GitClient(platform);
-          const raw = await client.searchRepos(params.query, params.limit ?? 10) as any;
-          const repos = raw.data || (Array.isArray(raw) ? raw : []);
-          if (!repos.length) return textResult(`No repositories found.`, { count: 0, instance: inst });
-          const text = repos.map((r: any) => `- ${r.full_name} ⭐${r.stargazers_count ?? r.stars_count ?? 0} ${r.description ?? ""}`).join("\n");
-          return textResult(text, { count: repos.length, instance: inst });
-        } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
+  // ══════════════════════════════════════════════════════════
+  //  gh_milestone_list
+  // ══════════════════════════════════════════════════════════
+  pi.registerTool({
+    name: "gh_milestone_list",
+    label: "List Milestones",
+    description: "List milestones in a repository.",
+    parameters: { type: "object", properties: { instance: instanceParam, repo: repoParam }, required: ["repo"] },
+    async execute(_id, params) {
+      const { config: platform, name: inst } = resolveConfig(params.instance);
+      const parsed = parseRepo(params.repo);
+      if (!parsed) return invalidRepo();
+      try {
+        const client = new GitClient(platform);
+        const data = await client.listMilestones(parsed.owner, parsed.repoName) as Array<Record<string, unknown>>;
+        const arr = Array.isArray(data) ? data : [];
+        if (!arr.length) return textResult(`No milestones.`, { count: 0, instance: inst });
+        const text = arr.map((m) => `- #${m.number} "${m.title}" [${m.state}]`).join("\n");
+        return textResult(text, { count: arr.length, instance: inst });
+      } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
+    },
+    renderCall(args, theme, _c) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] milestones`)) + theme.fg("accent", ` ${args.repo}`), 0, 0);
+    },
+    renderResult(result, _o, theme, _c) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} milestone(s)`), 0, 0);
+    },
+  });
+
+  // ══════════════════════════════════════════════════════════
+  //  gh_repo_search
+  // ══════════════════════════════════════════════════════════
+  pi.registerTool({
+    name: "gh_repo_search",
+    label: "Search Repos",
+    description: "Search repositories by keyword (Gitea/Forgejo only).",
+    parameters: {
+      type: "object",
+      properties: {
+        instance: instanceParam,
+        query: { type: "string", description: "Search keyword." },
+        limit: { type: "number", description: "Max results. Default: 10." },
       },
-      renderCall(args: any, theme: any, _c: any) {
-        const inst = resolveInstanceName(args.instance);
-        const display = args.repo ? ` ${args.repo}` : (args.query ? ` ${args.query}` : "");
-        return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] ${label.toLowerCase()}`)) + theme.fg("accent", display), 0, 0);
-      },
-      renderResult(result: any, _o: any, theme: any, _c: any) {
-        const count = (result.details as Record<string, unknown>)?.count ?? 0;
-        return new Text(theme.fg("muted", `${count} result(s)`), 0, 0);
-      },
-    });
-  };
-
-  registerMeta("gh_list_comments", "List Comments", "List comments on an issue or pull request.",
-    (c, owner, repo, params) => c.listComments(owner, repo, params.number),
-    (arr) => arr.map((c: any) => `@${c.user?.login ?? "?"} at ${c.created_at}:\n${c.body}\n---`).join("\n"));
-
-  registerMeta("gh_list_labels", "List Labels", "List all labels in a repository.",
-    (c, owner, repo) => c.listLabels(owner, repo),
-    (arr) => arr.map((l: any) => `- ${l.name}${l.color ? ` (#${l.color})` : ""}`).join("\n"));
-
-  registerMeta("gh_list_milestones", "List Milestones", "List milestones in a repository.",
-    (c, owner, repo) => c.listMilestones(owner, repo),
-    (arr) => arr.map((m: any) => `- #${m.number} "${m.title}" [${m.state}]`).join("\n"));
-
-  registerMeta("gh_search_repos", "Search Repos", "Search repositories by keyword (Gitea/Forgejo only).",
-    (c, _o, _r, params) => c.searchRepos(params.query, params.limit ?? 10));
+      required: ["query"],
+    },
+    async execute(_id, params) {
+      const { config: platform, name: inst } = resolveConfig(params.instance);
+      try {
+        const client = new GitClient(platform);
+        const raw = await client.searchRepos(params.query, params.limit ?? 10) as Record<string, unknown>;
+        const repos = (raw.data as Array<Record<string, unknown>> | undefined) ?? (Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : []);
+        if (!repos.length) return textResult(`No repositories found.`, { count: 0, instance: inst });
+        const text = repos.map((r) => `- ${r.full_name} ⭐${r.stargazers_count ?? r.stars_count ?? 0} ${r.description ?? ""}`).join("\n");
+        return textResult(text, { count: repos.length, instance: inst });
+      } catch (e) { return textResult((e as Error).message, { error: "api error", instance: inst }); }
+    },
+    renderCall(args, theme, _c) {
+      const inst = resolveInstanceName(args.instance);
+      return new Text(theme.fg("toolTitle", theme.bold(`[${inst}] repo search`)) + theme.fg("accent", ` ${args.query}`), 0, 0);
+    },
+    renderResult(result, _o, theme, _c) {
+      const count = (result.details as Record<string, unknown>)?.count ?? 0;
+      return new Text(theme.fg("muted", `${count} result(s)`), 0, 0);
+    },
+  });
 
   // ══════════════════════════════════════════════════════════
   //  gh_instance_list

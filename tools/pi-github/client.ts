@@ -1,13 +1,13 @@
 /**
  * GitClient — Multi-platform Git forge HTTP client.
  *
- * Wraps the low-level apiRequest/buildApiUrl helpers from lib.ts
+ * Wraps the low-level buildApiUrl/buildHeaders helpers from lib.ts
  * into a typed class, handling URL construction, auth headers,
  * and contextual error formatting per platform.
  */
 
 import type { PlatformConfig, PlatformType } from "./lib";
-import { apiRequest, buildApiUrl, buildHeaders, formatApiError } from "./lib";
+import { buildApiUrl, buildHeaders, buildSearchQuery, formatApiError, paginationParam } from "./lib";
 
 export class GitClient {
   constructor(private platform: PlatformConfig) {}
@@ -61,15 +61,10 @@ export class GitClient {
     return data as T;
   }
 
-  // Overload that returns raw status+data (for merge check etc.)
-  async rawRequest(method: string, path: string, body?: unknown): Promise<{ status: number; data: unknown }> {
-    return apiRequest(this.platform, method, path, body);
-  }
-
   // ── Repo ───────────────────────────────────────────────
 
   async getRepo(owner: string, repo: string) { return this.request(`/repos/${e(owner)}/${e(repo)}`); }
-  async listBranches(owner: string, repo: string, perPage = 30) { return this.request(`/repos/${e(owner)}/${e(repo)}/branches?${pp(this,"per_page")}=${perPage}`); }
+  async listBranches(owner: string, repo: string, perPage = 30) { return this.request(`/repos/${e(owner)}/${e(repo)}/branches?${paginationParam(this.platform)}=${perPage}`); }
   async listContents(owner: string, repo: string, path?: string, ref?: string) {
     let p = `/repos/${e(owner)}/${e(repo)}/contents`;
     if (path) p += `/${path.replace(/^\//, "")}`;
@@ -81,7 +76,7 @@ export class GitClient {
     if (ref) p += `?ref=${encodeURIComponent(ref)}`;
     return this.request(p);
   }
-  async searchRepos(q: string, limit = 10) { return this.request(`/repos/search?q=${encodeURIComponent(q)}&limit=${limit}`); }
+  async searchRepos(q: string, limit = 10) { return this.request(`/repos/search?${buildSearchQuery({ q, limit })}`); }
   async listLabels(owner: string, repo: string) { return this.request(`/repos/${e(owner)}/${e(repo)}/labels`); }
   async listMilestones(owner: string, repo: string) { return this.request(`/repos/${e(owner)}/${e(repo)}/milestones`); }
 
@@ -91,7 +86,7 @@ export class GitClient {
   async listIssues(owner: string, repo: string, query: string) { return this.request(`/repos/${e(owner)}/${e(repo)}/issues?${query}`); }
   async getIssue(owner: string, repo: string, number: number) { return this.request(`/repos/${e(owner)}/${e(repo)}/issues/${number}`); }
   async updateIssue(owner: string, repo: string, number: number, body: Record<string, unknown>) { return this.request("PATCH", `/repos/${e(owner)}/${e(repo)}/issues/${number}`, body); }
-  async listComments(owner: string, repo: string, number: number, perPage = 30) { return this.request(`/repos/${e(owner)}/${e(repo)}/issues/${number}/comments?${pp(this,"per_page")}=${Math.min(perPage, 100)}`); }
+  async listComments(owner: string, repo: string, number: number, perPage = 30) { return this.request(`/repos/${e(owner)}/${e(repo)}/issues/${number}/comments?${paginationParam(this.platform)}=${Math.min(perPage, 100)}`); }
   async createComment(owner: string, repo: string, number: number, body: string) { return this.request("POST", `/repos/${e(owner)}/${e(repo)}/issues/${number}/comments`, { body }); }
 
   // ── PRs ────────────────────────────────────────────────
@@ -104,9 +99,12 @@ export class GitClient {
   async mergePR(owner: string, repo: string, number: number, method?: string, deleteBranch?: boolean): Promise<{ merged: boolean; message?: string }> {
     const body: Record<string, unknown> = {};
     if (method) {
+      // GitHub uses merge_method; Gitea/Forgejo use the oddly-named "Do" field
+      // (values: merge | rebase | rebase-merge | squash).
       if (this.platform.type === "github") body.merge_method = method;
       else body.Do = method;
     }
+    // GitHub's merge API has no delete-branch option (ignored there).
     if (deleteBranch && this.platform.type !== "github") body.delete_branch_after_merge = deleteBranch;
     return this.request("PUT", `/repos/${e(owner)}/${e(repo)}/pulls/${number}/merge`, body);
   }
@@ -122,6 +120,3 @@ export class GitClient {
 // ── tiny helpers ──────────────────────────────────────────
 
 const e = encodeURIComponent;
-function pp(client: GitClient, name: string): string {
-  return client.type === "github" ? "per_page" : "limit";
-}

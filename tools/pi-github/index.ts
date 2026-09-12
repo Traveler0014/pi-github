@@ -7,10 +7,10 @@
  *
  * ## What this extension provides
  *
- * - Tools (21): gh_issue_create, gh_issue_list, gh_issue_get, gh_issue_comment,
+ * - Tools (20): gh_issue_create, gh_issue_list, gh_issue_get, gh_issue_comment,
  *               gh_issue_update, gh_pr_create, gh_pr_list, gh_pr_get, gh_pr_update,
- *               gh_merge_pr, gh_list_contents, gh_get_file, gh_list_branches,
- *               gh_list_comments, gh_list_labels, gh_list_milestones, gh_search_repos,
+ *               gh_pr_merge, gh_content_list, gh_file_get, gh_branch_list,
+ *               gh_comment_list, gh_label_list, gh_milestone_list, gh_repo_search,
  *               gh_repo_get, gh_instance_list, gh_instance_check
  *   → Registered in tools.ts via GitClient class
  *
@@ -19,7 +19,7 @@
  * ## Architecture
  *
  *   index.ts   ← Entry point + commands
- *   tools.ts   ← All 21 tool registrations
+ *   tools.ts   ← All 20 tool registrations
  *   client.ts  ← GitClient class (typed HTTP wrapper)
  *   lib.ts     ← Pure functions (config, auth, URL building, error formatting)
  *
@@ -30,53 +30,21 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as fs from "node:fs";
-import { Text } from "@earendil-works/pi-tui";
 import { registerTools } from "./tools";
 import {
-  formatApiError,
-  getConfig,
-  getConfigPath,
   getProjectConfigPath,
   GITHUB_DEFAULT_BASE,
   GITEA_DEFAULT_BASE,
   listInstances,
   loadConfig,
   maskToken,
-  paginationParam,
-  parseRepo,
   saveConfig,
-  type PlatformConfig,
   type PlatformType,
 } from "./lib";
-import { GitClient } from "./client";
 
 export default function (pi: ExtensionAPI) {
-  // Register all 21 tools
+  // Register all 20 tools
   registerTools(pi);
-
-  // ── Helper: resolve config by instance ────────────────────────────────
-  function resolveConfig(instance?: string): { config: PlatformConfig; name: string } {
-    const cfg = loadConfig();
-    const resolved = getConfig(cfg, instance);
-    if (!resolved) {
-      const available = listInstances(cfg);
-      const hint = instance
-        ? `Instance "${instance}" not found. Available: ${available}.`
-        : `No default instance configured. Run /gh-login to set up. Available: ${available}`;
-      throw new Error(hint);
-    }
-    return resolved;
-  }
-
-  function resolveInstanceName(instance?: string): string {
-    return resolveConfig(instance).name;
-  }
-
-  // ── Shared parameter schema for instance ─────────────────────────────
-  const instanceParam = {
-    type: "string" as const,
-    description: "Platform instance ID to operate on. Omit to use the default (set via /gh-default). Use /gh-status to list all available instance IDs.",
-  };
 
   // ═══════════════════════════════════════════════════════════
   //  Commands — Interactive wizard + quick mode

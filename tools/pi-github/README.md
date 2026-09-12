@@ -33,7 +33,7 @@ Run `/gh-login` multiple times to add more instances.
 ### Switch default instance
 
 ```
-/gh-switch
+/gh-default
 ```
 
 Select which instance to use by default when no `instance` parameter is specified in a tool call.
@@ -80,13 +80,11 @@ Each platform connection is stored as a named instance in `~/.pi/agent/pi-github
 
 - One instance is the **default** — used when `instance` is omitted
 - Any tool can override via `instance: "work-gitea"`
-- Switch defaults with `/gh-switch`
+- Switch defaults with `/gh-default`
 
-### Platform detection
+### Platform type
 
-Auto-detected from the base URL:
-- URLs containing `api.github.com` → GitHub
-- All others using `/api/v1` conventions → Gitea/Forgejo
+Chosen explicitly when adding an instance via `/gh-login` (GitHub, Gitea, or Forgejo). Platform-specific behavior — auth header style, pagination param (`per_page` vs `limit`), API path prefix (`/api/v1` auto-appended for Gitea/Forgejo) — is handled transparently.
 
 ### API differences handled transparently
 
@@ -98,7 +96,7 @@ Auto-detected from the base URL:
 
 ## Tools (agent-facing, snake_case)
 
-All tools accept an optional `instance` parameter to target a specific platform. Omit to use the default instance.
+Repository-, issue-, and PR-oriented tools accept an optional `instance` parameter to target a specific platform. Omit to use the default instance. `gh_instance_list` takes no parameters.
 
 ### `gh_issue_create`
 
@@ -191,6 +189,129 @@ Get repository information.
 | `instance` | | Platform instance name |
 | `repo` | ✓ | Repository in `owner/repo` format |
 
+### `gh_issue_update`
+
+Update an existing issue. Only provided fields are changed; at least one is required.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `number` | ✓ | Issue number |
+| `title` | | New title |
+| `body` | | New body (Markdown) |
+| `state` | | `open` or `closed` |
+| `labels` | | Replacement label names (array) |
+| `assignees` | | Replacement assignees (array) |
+| `milestone` | | Milestone number, or `null` to clear |
+
+### `gh_pr_update`
+
+Update an existing pull request. Only provided fields are changed; at least one is required.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `number` | ✓ | PR number |
+| `title` | | New title |
+| `body` | | New body (Markdown) |
+| `state` | | `open` or `closed` |
+
+### `gh_pr_merge`
+
+Merge a pull request.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `number` | ✓ | PR number |
+| `method` | | `merge` (default), `rebase`, or `squash` |
+| `deleteBranch` | | Delete source branch after merge (Gitea/Forgejo only; ignored on GitHub). Default: false |
+
+### `gh_branch_list`
+
+List branches with commit info and protection status.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `perPage` | | Results per page (default: 30, max: 100) |
+
+### `gh_content_list`
+
+List files and directories at a repository path (like `ls`).
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `path` | | Directory path (empty for root) |
+| `ref` | | Branch or commit SHA |
+
+### `gh_file_get`
+
+Read a file from a repository (decoded content).
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `path` | ✓ | File path in the repository |
+| `ref` | | Branch or commit SHA |
+
+### `gh_comment_list`
+
+List comments on an issue or pull request.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+| `number` | ✓ | Issue or PR number |
+
+### `gh_label_list`
+
+List all labels in a repository.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+
+### `gh_milestone_list`
+
+List milestones in a repository.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `repo` | ✓ | Repository in `owner/repo` format |
+
+### `gh_repo_search`
+
+Search repositories by keyword (Gitea/Forgejo only).
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name |
+| `query` | ✓ | Search keyword |
+| `limit` | | Max results (default: 10) |
+
+### `gh_instance_list`
+
+List all configured platform instances with types, URLs, and which is the default.
+
+### `gh_instance_check`
+
+Check connectivity and token validity for a configured instance.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `instance` | | Platform instance name (uses default if omitted) |
+
 ## Commands (user-facing, kebab-case)
 
 ### `/gh-login`
@@ -226,7 +347,7 @@ When `instance` is omitted, the default (set via `/gh-default`) is used silently
 ## Install
 
 ```bash
-pi install https://github.com/Traveler0014/pi-extension-template.git
+pi install https://github.com/Traveler0014/pi-github.git
 ```
 
 ## License

@@ -219,8 +219,9 @@ export function formatApiError(status: number, data: unknown, apiPath: string, p
     hint = " — Token may be expired or invalid. Run /gh-login to reconfigure.";
   } else if (status === 404) {
     hint = " — Repository may not exist, be private, or you may lack access.";
-  } else if ((platformType === "gitea" || platformType === "forgejo") && status === 404) {
-    hint = " — Also check: Gitea/Forgejo API requires /api/v1 prefix in baseUrl (auto-applied by buildApiUrl).";
+    if (platformType === "gitea" || platformType === "forgejo") {
+      hint += " Also check: Gitea/Forgejo API requires /api/v1 prefix in baseUrl (auto-applied by buildApiUrl).";
+    }
   }
   return `API error ${status} on ${apiPath}: ${msg}${hint}`;
 }

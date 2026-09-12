@@ -266,6 +266,12 @@ describe("formatApiError", () => {
     expect(err).toContain("private");
   });
 
+  it("404 on Gitea/Forgejo also hints at the /api/v1 prefix", () => {
+    const err = formatApiError(404, { message: "Not Found" }, "/repos/a/b", "gitea");
+    expect(err).toContain("private");
+    expect(err).toContain("/api/v1");
+  });
+
   it("401 adds hint about expired token", () => {
     const err = formatApiError(401, { message: "Bad credentials" }, "/repos/a/b");
     expect(err).toContain("Token");
